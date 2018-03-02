@@ -2,6 +2,9 @@
 #
 # Project created by QtCreator 2018-02-27T22:28:58
 #
+# Copyright SME GmbH
+# Open source license to be defined. GPL2?
+#
 #-------------------------------------------------
 
 QT       -= core

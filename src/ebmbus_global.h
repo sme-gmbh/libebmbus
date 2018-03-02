@@ -1,3 +1,6 @@
+// Copyright SME GmbH
+// Open source license to be defined. GPL2?
+
 #ifndef EBMBUS_GLOBAL_H
 #define EBMBUS_GLOBAL_H
 

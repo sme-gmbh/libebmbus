@@ -1,3 +1,6 @@
+// Copyright SME GmbH
+// Open source license to be defined. GPL2?
+
 #include "ebmbus.h"
 
 EbmBus::EbmBus(QObject *parent, QString interface) : QObject(parent)
