@@ -40,6 +40,7 @@ public:
     void writeEEPROM(quint8 fanAddress, quint8 fanGroup, quint8 eepromAddress, quint8 eepromData);
     void readEEPROM(quint8 fanAddress, quint8 fanGroup, quint8 eepromAddress);
     void startDaisyChainAddressing();
+    void clearAllAddresses();
     bool isDaisyChainInProgress();
 
     // Low level access
@@ -52,6 +53,7 @@ private:
     QByteArray m_readBuffer;
     QStringList m_serialnumbers;
     QTimer m_dciTimer;
+    bool m_dciClear;    // If this bit is set, DCI addressing will set (1,1) for all addresses (set all to factory default)
     bool m_transactionPending;
 
     typedef enum {

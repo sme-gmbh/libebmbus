@@ -9,6 +9,7 @@ EbmBus::EbmBus(QObject *parent, QString interface) : QObject(parent)
     m_port = new QSerialPort(interface, this);
     m_transactionPending = false;
 
+    m_dciClear = false;
     m_dciTimer.setInterval(200);
     connect(&m_dciTimer, SIGNAL(timeout()), this, SLOT(slot_dciTask()));
 }
@@ -87,6 +88,14 @@ void EbmBus::readEEPROM(quint8 fanAddress, quint8 fanGroup, quint8 eepromAddress
 
 void EbmBus::startDaisyChainAddressing()
 {
+    m_serialnumbers.clear();
+    m_dciState = Idle;
+    m_dciTimer.start();
+}
+
+void EbmBus::clearAllAddresses()
+{
+    m_dciClear = true;
     m_serialnumbers.clear();
     m_dciState = Idle;
     m_dciTimer.start();
@@ -186,6 +195,7 @@ void EbmBus::slot_DCIloopResponse(bool on)
     {
         m_dciTimer.stop();
         m_dciState = Idle;
+        m_dciClear = false;
         emit signal_DaisyChainAdressingFinished();
     }
 }
@@ -224,11 +234,17 @@ void EbmBus::slot_dciTask()
         m_dciState = AddressingGA;
         break;
     case AddressingGA:
-        writeEEPROM(0, 0, 0x00, groupaddress);
+        if (m_dciClear)
+            writeEEPROM(0, 0, 0x00, 1);
+        else
+            writeEEPROM(0, 0, 0x00, groupaddress);
         m_dciState = AddressingFA;
         break;
     case AddressingFA:
-        writeEEPROM(0, 0, 0x01, fanaddress++);
+        if (m_dciClear)
+            writeEEPROM(0, 0, 0x01, 1);
+        else
+            writeEEPROM(0, 0, 0x01, fanaddress++);
         m_dciState = ReadSerialnumber_1;
         break;
     case ReadSerialnumber_1:
