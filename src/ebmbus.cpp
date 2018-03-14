@@ -103,10 +103,10 @@ void EbmBus::clearAllAddresses()
 
 bool EbmBus::isDaisyChainInProgress()
 {
-    if (m_dciState == Idle)
-        return false;
-    else
+    if (m_dciTimer.isActive())
         return true;
+    else
+        return false;
 }
 
 
