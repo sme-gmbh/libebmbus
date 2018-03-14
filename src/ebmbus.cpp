@@ -8,6 +8,9 @@ EbmBus::EbmBus(QObject *parent, QString interface) : QObject(parent)
     m_interface = interface;
     m_port = new QSerialPort(interface, this);
     m_transactionPending = false;
+
+    m_dciTimer.setInterval(200);
+    connect(&m_dciTimer, SIGNAL(timeout()), this, SLOT(slot_dciTask()));
 }
 
 EbmBus::~EbmBus()
@@ -80,6 +83,21 @@ void EbmBus::writeEEPROM(quint8 fanAddress, quint8 fanGroup, quint8 eepromAddres
 void EbmBus::readEEPROM(quint8 fanAddress, quint8 fanGroup, quint8 eepromAddress)
 {
     writeTelegram(EbmBus::EEPROMread, fanAddress, fanGroup, QByteArray(1, eepromAddress));
+}
+
+void EbmBus::startDaisyChainAddressing()
+{
+    m_serialnumbers.clear();
+    m_dciState = Idle;
+    m_dciTimer.start();
+}
+
+bool EbmBus::isDaisyChainInProgress()
+{
+    if (m_dciState == Idle)
+        return false;
+    else
+        return true;
 }
 
 
@@ -162,6 +180,16 @@ void EbmBus::tryToParseResponse(QByteArray* buffer)
     buffer->clear();
 }
 
+void EbmBus::slot_DCIloopResponse(bool on)
+{
+    if (on) // Adressing finished
+    {
+        m_dciTimer.stop();
+        m_dciState = Idle;
+        emit signal_DaisyChainAdressingFinished();
+    }
+}
+
 void EbmBus::slot_readyRead()
 {
     while (!m_port->atEnd())
@@ -169,6 +197,60 @@ void EbmBus::slot_readyRead()
         m_readBuffer += m_port->read(1);
 
         tryToParseResponse(&m_readBuffer);
+    }
+}
+
+void EbmBus::slot_dciTask()
+{
+    int groupaddress = 2;
+    static int fanaddress = 2;
+
+    switch (m_dciState)
+    {
+    case Idle:
+        fanaddress = 2; // Todo: dynamic addressing by user selectable address table
+        m_dciState = OutLow_1;
+        break;
+    case OutLow_1:
+        emit signal_setDCIoutput(false);
+        m_dciState = RelaisOff;
+        break;
+    case RelaisOff:
+        writeEEPROM(0, 0, 0x9d, 0);
+        m_dciState = OutHigh;
+        break;
+    case OutHigh:
+        emit signal_setDCIoutput(true);
+        m_dciState = AddressingGA;
+        break;
+    case AddressingGA:
+        writeEEPROM(0, 0, 0x00, groupaddress);
+        m_dciState = AddressingFA;
+        break;
+    case AddressingFA:
+        writeEEPROM(0, 0, 0x01, fanaddress++);
+        m_dciState = ReadSerialnumber_1;
+        break;
+    case ReadSerialnumber_1:
+        readEEPROM(0, 0, 0x83);
+        m_dciState = ReadSerialnumber_2;
+        break;
+    case ReadSerialnumber_2:
+        readEEPROM(0, 0, 0x84);
+        m_dciState = ReadSerialnumber_3;
+        break;
+    case ReadSerialnumber_3:
+        readEEPROM(0, 0, 0x85);
+        m_dciState = RelaisOn;
+        break;
+    case RelaisOn:
+        writeEEPROM(0, 0, 0x9d, 0xff);
+        m_dciState = OutLow_2;
+        break;
+    case OutLow_2:
+        emit signal_setDCIoutput(false);
+        m_dciState = OutHigh;
+        break;
     }
 }
 
