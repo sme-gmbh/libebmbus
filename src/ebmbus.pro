@@ -30,6 +30,7 @@ win32-g++: QMAKE_TARGET.arch = $$QMAKE_HOST.arch
 win32-msvc*: QMAKE_TARGET.arch = $$QMAKE_HOST.arch
 linux-raspi: QMAKE_TARGET.arch = armv6l
 linux-armv6l: QMAKE_TARGET.arch = armv6l
+linux-armv7l: QMAKE_TARGET.arch = armv7l
 linux-arm*: QMAKE_TARGET.arch = armv6l
 linux-aarch64*: QMAKE_TARGET.arch = aarch64
 
@@ -46,6 +47,11 @@ unix {
 
     equals(QMAKE_TARGET.arch , armv6l): {
         message("Configured for armv6l")
+        target.path = /usr/lib
+    }
+
+    equals(QMAKE_TARGET.arch , armv7l): {
+        message("Configured for armv7l")
         target.path = /usr/lib
     }
 
