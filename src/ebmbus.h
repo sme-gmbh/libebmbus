@@ -26,7 +26,7 @@ public:
 
     // High level access
     quint64 getSimpleStatus(quint8 fanAddress, quint8 fanGroup);
-    quint64 getStatus(quint8 fanAddress, quint8 fanGroup, quint8 statusAddress);
+    quint64 getStatus(quint8 fanAddress, quint8 fanGroup, EbmBusStatus::StatusAddress statusAddress);
     quint64 getActualSpeed(quint8 fanAddress, quint8 fanGroup);
     quint64 setSpeedSetpoint(quint8 fanAddress, quint8 fanGroup, quint8 speed);
     quint64 softwareReset(quint8 fanAddress, quint8 fanGroup);

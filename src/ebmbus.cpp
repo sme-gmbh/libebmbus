@@ -58,7 +58,7 @@ quint64 EbmBus::getSimpleStatus(quint8 fanAddress, quint8 fanGroup)
     return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::GetStatus, fanAddress, fanGroup, QByteArray()));
 }
 
-quint64 EbmBus::getStatus(quint8 fanAddress, quint8 fanGroup, quint8 statusAddress)
+quint64 EbmBus::getStatus(quint8 fanAddress, quint8 fanGroup, EbmBusStatus::StatusAddress statusAddress)
 {
     return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::GetStatus, fanAddress, fanGroup, QByteArray(1, statusAddress)));
 }
