@@ -49,6 +49,13 @@ private:
     QTimer m_dciTimer;
     QTimer m_requestTimer;
     bool m_dciClear;    // If this bit is set, DCI addressing will set (1,1) for all addresses (set all to factory default)
+    quint8 m_dci_currentSerialNumber_byte_0;
+    quint8 m_dci_currentSerialNumber_byte_1;
+    quint8 m_dci_currentSerialNumber_byte_2;
+    quint64 m_dci_telegramID;
+    int m_dci_groupAddress;
+    int m_dci_fanAddress;
+
     bool m_transactionPending;
     QList<EbmBusTelegram*> m_telegramQueue;
     EbmBusTelegram* m_currentTelegram;
@@ -80,6 +87,7 @@ signals:
     void signal_transactionFinished();
     void signal_transactionLost(quint64 id);
     void signal_setDCIoutput(bool on);
+    void signal_DaisyChainAddressingGotSerialNumber(quint8 fanAddress, quint8 fanGroup, quint32 serialNumber);
     void signal_DaisyChainAdressingFinished();
 
     // High level response signals
@@ -88,7 +96,7 @@ signals:
     void signal_actualSpeed(quint64 telegramID, quint8 fanAddress, quint8 fanGroup, quint8 actualRawSpeed);
     void signal_setPointHasBeenSet(quint64 telegramID, quint8 fanAddress, quint8 fanGroup);
     void signal_EEPROMhasBeenWritten(quint64 telegramID, quint8 fanAddress, quint8 fanGroup);
-    void signal_EEPROMdata(quint64 telegramID, quint8 fanAddress, quint8 fanGroup, quint8 dataByte);
+    void signal_EEPROMdata(quint64 telegramID, quint8 fanAddress, quint8 fanGroup, EbmBusEEPROM::EEPROMaddress eepromAddress, quint8 dataByte);
     // Todo: Implement more high level response signals
 
 public slots:
@@ -98,6 +106,7 @@ private slots:
     void slot_tryToSendNextTelegram();
     void slot_readyRead();
     void slot_dciTask();
+    void slot_dciReceivedEEPROMdata(quint64 telegramID, quint8 fanAddress, quint8 fanGroup, EbmBusEEPROM::EEPROMaddress eepromAddress, quint8 dataByte);
     void slot_requestTimer_fired();
 };
 

@@ -9,6 +9,11 @@ EbmBus::EbmBus(QObject *parent, QString interface) : QObject(parent)
     m_port = new QSerialPort(interface, this);
     m_transactionPending = false;
     m_currentTelegram = NULL;
+    m_dci_telegramID = 0;
+
+    m_dci_currentSerialNumber_byte_0 = 0;
+    m_dci_currentSerialNumber_byte_1 = 0;
+    m_dci_currentSerialNumber_byte_2 = 0;
 
     connect(this, SIGNAL(signal_transactionFinished()), this, SLOT(slot_tryToSendNextTelegram()));
 
@@ -102,6 +107,8 @@ quint64 EbmBus::readEEPROM(quint8 fanAddress, quint8 fanGroup, EbmBusEEPROM::EEP
 
 void EbmBus::startDaisyChainAddressing()
 {
+    m_dci_fanAddress = 2;
+    m_dci_groupAddress = 1; // Starting at 2 (preincrement)!
     m_serialnumbers.clear();
     m_dciState = Idle;
     m_dciTimer.start();
@@ -422,10 +429,11 @@ void EbmBus::parseResponse(quint64 id, quint8 preamble, quint8 commandAndFanaddr
         emit signal_EEPROMhasBeenWritten(id, fanAddress, fanGroup);
         break;
     case EbmBusCommand::EEPROMread:
-        if (data.length() == 1)
+        if (data.length() == 2)
         {
             quint8 dataByte = data.at(0);
-            emit signal_EEPROMdata(id, fanAddress, fanGroup, dataByte);
+            quint8 dataAddress = data.at(1);
+            emit signal_EEPROMdata(id, fanAddress, fanGroup, (EbmBusEEPROM::EEPROMaddress)dataAddress, dataByte);
         }
         break;
     }
@@ -439,6 +447,8 @@ void EbmBus::slot_DCIloopResponse(bool on)
         m_dciState = Idle;
         m_dciClear = false;
         emit signal_DaisyChainAdressingFinished();
+        disconnect(this, SIGNAL(signal_EEPROMdata(quint64,quint8,quint8,EbmBusEEPROM::EEPROMaddress,quint8)),
+                   this, SLOT(slot_dciReceivedEEPROMdata(quint64,quint8,quint8,EbmBusEEPROM::EEPROMaddress,quint8)));
     }
 }
 
@@ -454,14 +464,13 @@ void EbmBus::slot_readyRead()
 
 void EbmBus::slot_dciTask()
 {
-    static int groupaddress = 2;
-    int fanaddress = 2;
-
     switch (m_dciState)
     {
     case Idle:
-        fanaddress = 2; // Todo: dynamic addressing by user selectable address table
+        m_dci_fanAddress = 2; // Todo: dynamic addressing by user selectable address table
         //groupaddress =
+        connect(this, SIGNAL(signal_EEPROMdata(quint64,quint8,quint8,EbmBusEEPROM::EEPROMaddress,quint8)),
+                this, SLOT(slot_dciReceivedEEPROMdata(quint64,quint8,quint8,EbmBusEEPROM::EEPROMaddress,quint8)));
         m_dciState = OutLow_1;
         break;
     case OutLow_1:
@@ -469,7 +478,7 @@ void EbmBus::slot_dciTask()
         m_dciState = RelaisOff;
         break;
     case RelaisOff:
-        writeEEPROM(0, 0, EbmBusEEPROM::DCIrelais, 0);
+        m_dci_telegramID = writeEEPROM(0, 0, EbmBusEEPROM::DCIrelais, 0);
         m_dciState = OutHigh;
         break;
     case OutHigh:
@@ -478,38 +487,60 @@ void EbmBus::slot_dciTask()
         break;
     case AddressingGA:
         if (m_dciClear)
-            writeEEPROM(0, 0, EbmBusEEPROM::FanGroupAddress, 1);
+            m_dci_telegramID = writeEEPROM(0, 0, EbmBusEEPROM::FanGroupAddress, 1);
         else
-            writeEEPROM(0, 0, EbmBusEEPROM::FanGroupAddress, groupaddress++);
+            m_dci_telegramID = writeEEPROM(0, 0, EbmBusEEPROM::FanGroupAddress, ++m_dci_groupAddress);
         m_dciState = AddressingFA;
         break;
     case AddressingFA:
         if (m_dciClear)
-            writeEEPROM(0, 0, EbmBusEEPROM::FanAddress, 1);
+            m_dci_telegramID = writeEEPROM(0, 0, EbmBusEEPROM::FanAddress, 1);
         else
-            writeEEPROM(0, 0, EbmBusEEPROM::FanAddress, fanaddress);
+            m_dci_telegramID = writeEEPROM(0, 0, EbmBusEEPROM::FanAddress, m_dci_fanAddress);
         m_dciState = ReadSerialnumber_1;
         break;
     case ReadSerialnumber_1:
-        readEEPROM(0, 0, EbmBusEEPROM::SerialNumber_Byte_2);
+        m_dci_telegramID = readEEPROM(0, 0, EbmBusEEPROM::SerialNumber_Byte_2);
         m_dciState = ReadSerialnumber_2;
         break;
     case ReadSerialnumber_2:
-        readEEPROM(0, 0, EbmBusEEPROM::SerialNumber_Byte_1);
+        m_dci_telegramID = readEEPROM(0, 0, EbmBusEEPROM::SerialNumber_Byte_1);
         m_dciState = ReadSerialnumber_3;
         break;
     case ReadSerialnumber_3:
-        readEEPROM(0, 0, EbmBusEEPROM::SerialNumber_Byte_0);
+        m_dci_telegramID = readEEPROM(0, 0, EbmBusEEPROM::SerialNumber_Byte_0);
         m_dciState = RelaisOn;
         break;
     case RelaisOn:
-        writeEEPROM(0, 0, EbmBusEEPROM::DCIrelais, 0xff);
+        m_dci_telegramID = writeEEPROM(0, 0, EbmBusEEPROM::DCIrelais, 0xff);
         m_dciState = OutLow_2;
         break;
     case OutLow_2:
         emit signal_setDCIoutput(false);
         m_dciState = OutHigh;
         break;
+    }
+}
+
+void EbmBus::slot_dciReceivedEEPROMdata(quint64 telegramID, quint8 fanAddress, quint8 fanGroup, EbmBusEEPROM::EEPROMaddress eepromAddress, quint8 dataByte)
+{
+    Q_UNUSED(fanAddress);
+    Q_UNUSED(fanGroup);
+
+    // Check if that telegram has been sent by our dci job, otherwise ignore it
+    if (telegramID != m_dci_telegramID)
+        return;
+
+    if (eepromAddress == EbmBusEEPROM::SerialNumber_Byte_2)
+        m_dci_currentSerialNumber_byte_2 = dataByte;
+    else if (eepromAddress == EbmBusEEPROM::SerialNumber_Byte_1)
+        m_dci_currentSerialNumber_byte_1 = dataByte;
+    else if (eepromAddress == EbmBusEEPROM::SerialNumber_Byte_0)
+    {
+        m_dci_currentSerialNumber_byte_0 = dataByte;
+
+        quint32 serialNumber = ((m_dci_currentSerialNumber_byte_2 << 16) | (m_dci_currentSerialNumber_byte_1 << 8) | m_dci_currentSerialNumber_byte_0);
+        emit signal_DaisyChainAddressingGotSerialNumber(m_dci_fanAddress, m_dci_groupAddress, serialNumber);
     }
 }
 
