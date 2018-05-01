@@ -25,6 +25,7 @@ EbmBusTelegram::EbmBusTelegram(EbmBusCommand::Command command, quint8 fanAddress
     this->fanGroup = fanGroup;
     this->data = data;
     this->servicebit = servicebit;
+    repeatCount = 1;
 }
 
 bool EbmBusTelegram::needsAnswer()
