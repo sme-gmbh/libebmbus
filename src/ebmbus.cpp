@@ -257,11 +257,33 @@ void EbmBus::parseResponse(quint64 id, quint8 preamble, quint8 commandAndFanaddr
 
     switch (command) {
     case EbmBusCommand::GetStatus:
-        if (data.length() == 1)
+        if (data.length() == 1) // This is the old version of status response using only one byte without addressable status registers
         {
-            QString status;
+            QString str;
+            quint8 value = data.at(0);
 
-            emit signal_simpleStatus(id, fanAddress, fanGroup, status);
+            if (value & 0x80)
+                str += "Blocked Motor; ";
+            if (value & 0x40)
+                str += "Hall sensor failure; ";
+            if (value & 0x20)
+                str += "Thermal overload of motor; ";
+            if (value & 0x10)
+                str += "Fan-Bad - common error; ";
+            if (value & 0x08)
+                str += "Communication error between Master-PIC and Slave-PIC; ";
+            if (value & 0x04)
+                str += "Thermal overload of electronic power module; ";
+            if (value & 0x02)
+                str += "Communication error with remote unit; ";
+            if (value & 0x01)
+                str += "Phase failure; ";
+
+            if (str.isEmpty())
+                str = "No errors in low byte status.";
+            break;
+
+            emit signal_simpleStatus(id, fanAddress, fanGroup, str);
         }
         else if (data.length() == 2)
         {
