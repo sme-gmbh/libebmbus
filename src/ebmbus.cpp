@@ -132,16 +132,21 @@ bool EbmBus::isDaisyChainInProgress()
 
 void EbmBus::slot_tryToSendNextTelegram()
 {
-    if (m_telegramQueue.isEmpty())
-        return;
-
     // Delete last telegram if it exists
     // If repeat counter is not zero, then repeat current telegram, otherwise take new
     // telegram from the queue
     if ((m_currentTelegram != NULL) && (m_currentTelegram->repeatCount == 0))
+    {
         delete m_currentTelegram;
-    else
+        m_currentTelegram = NULL;
+    }
+
+    if (m_currentTelegram == NULL)
+    {
+        if (m_telegramQueue.isEmpty())
+            return;
         m_currentTelegram = m_telegramQueue.takeFirst();
+    }
 
     m_transactionPending = true;
     m_requestTimer.start();
@@ -567,10 +572,10 @@ void EbmBus::slot_dciReceivedEEPROMdata(quint64 telegramID, quint8 fanAddress, q
 
 void EbmBus::slot_requestTimer_fired()
 {
-    if (m_currentTelegram->needsAnswer)
+    if (m_currentTelegram->needsAnswer())
     {
         emit signal_transactionLost(m_currentTelegram->getID());
     }
-    slot_tryToSendNextTelegram();
+    emit signal_transactionFinished();
 }
 

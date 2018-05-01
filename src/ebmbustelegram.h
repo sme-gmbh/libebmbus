@@ -22,7 +22,7 @@ public:
 
     int repeatCount;    // Set to different value if that telegram is important and should be autorepeated
 
-    bool needsAnswer;
+    bool needsAnswer();
 
     quint64 getID();
 

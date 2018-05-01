@@ -10,7 +10,6 @@ EbmBusTelegram::EbmBusTelegram()
 
     repeatCount = 1;
     servicebit = false;
-    needsAnswer = false;
 }
 
 EbmBusTelegram::EbmBusTelegram(EbmBusCommand::Command command, quint8 fanAddress, quint8 fanGroup, QByteArray data, bool servicebit)
@@ -26,8 +25,14 @@ EbmBusTelegram::EbmBusTelegram(EbmBusCommand::Command command, quint8 fanAddress
     this->fanGroup = fanGroup;
     this->data = data;
     this->servicebit = servicebit;
+}
 
-    needsAnswer = false;
+bool EbmBusTelegram::needsAnswer()
+{
+    if ((this->fanAddress == 0) || (this->fanGroup == 0))
+        return false;
+    else
+        return true;
 }
 
 quint64 EbmBusTelegram::getID()
