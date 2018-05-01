@@ -8,6 +8,8 @@ EbmBusTelegram::EbmBusTelegram()
     if (id == 0)            // Wrap around and avoid 0 - if that might ever happen with quint64... - just to be correct.
         id = 1;
 
+    repeatCount = 1;
+    servicebit = false;
     needsAnswer = false;
 }
 

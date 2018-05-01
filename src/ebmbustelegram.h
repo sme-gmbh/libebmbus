@@ -18,9 +18,9 @@ public:
     quint8 fanAddress;
     quint8 fanGroup;
     QByteArray data;
-    bool servicebit = false;
+    bool servicebit;
 
-    int repeatCount = 1;    // Set to different value if that telegram is important and should be autorepeated
+    int repeatCount;    // Set to different value if that telegram is important and should be autorepeated
 
     bool needsAnswer;
 
