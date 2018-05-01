@@ -31,8 +31,8 @@ public:
     quint64 setSpeedSetpoint(quint8 fanAddress, quint8 fanGroup, quint8 speed);
     quint64 softwareReset(quint8 fanAddress, quint8 fanGroup);
     quint64 diagnosis(quint8 fanAddress, quint8 fanGroup, quint8 c, quint16 a, QByteArray d);
-    quint64 writeEEPROM(quint8 fanAddress, quint8 fanGroup, quint8 eepromAddress, quint8 eepromData);
-    quint64 readEEPROM(quint8 fanAddress, quint8 fanGroup, quint8 eepromAddress);
+    quint64 writeEEPROM(quint8 fanAddress, quint8 fanGroup, EbmBusEEPROM::EEPROMaddress eepromAddress, quint8 eepromData);
+    quint64 readEEPROM(quint8 fanAddress, quint8 fanGroup, EbmBusEEPROM::EEPROMaddress eepromAddress);
     void startDaisyChainAddressing();
     void clearAllAddresses();
     bool isDaisyChainInProgress();

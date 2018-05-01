@@ -85,7 +85,7 @@ quint64 EbmBus::diagnosis(quint8 fanAddress, quint8 fanGroup, quint8 c, quint16 
 }
 
 // Write EEPROM data must be committed by software reset (except setpoint, p, i, d controller parameters and reduction factor)
-quint64 EbmBus::writeEEPROM(quint8 fanAddress, quint8 fanGroup, quint8 eepromAddress, quint8 eepromData)
+quint64 EbmBus::writeEEPROM(quint8 fanAddress, quint8 fanGroup, EbmBusEEPROM::EEPROMaddress eepromAddress, quint8 eepromData)
 {
     QByteArray payload;
 
@@ -95,7 +95,7 @@ quint64 EbmBus::writeEEPROM(quint8 fanAddress, quint8 fanGroup, quint8 eepromAdd
     return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::EEPROMwrite, fanAddress, fanGroup, payload));
 }
 
-quint64 EbmBus::readEEPROM(quint8 fanAddress, quint8 fanGroup, quint8 eepromAddress)
+quint64 EbmBus::readEEPROM(quint8 fanAddress, quint8 fanGroup, EbmBusEEPROM::EEPROMaddress eepromAddress)
 {
     return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::EEPROMread, fanAddress, fanGroup, QByteArray(1, eepromAddress)));
 }
@@ -469,7 +469,7 @@ void EbmBus::slot_dciTask()
         m_dciState = RelaisOff;
         break;
     case RelaisOff:
-        writeEEPROM(0, 0, 0x9d, 0);
+        writeEEPROM(0, 0, EbmBusEEPROM::DCIrelais, 0);
         m_dciState = OutHigh;
         break;
     case OutHigh:
@@ -478,32 +478,32 @@ void EbmBus::slot_dciTask()
         break;
     case AddressingGA:
         if (m_dciClear)
-            writeEEPROM(0, 0, 0x00, 1);
+            writeEEPROM(0, 0, EbmBusEEPROM::FanGroupAddress, 1);
         else
-            writeEEPROM(0, 0, 0x00, groupaddress++);
+            writeEEPROM(0, 0, EbmBusEEPROM::FanGroupAddress, groupaddress++);
         m_dciState = AddressingFA;
         break;
     case AddressingFA:
         if (m_dciClear)
-            writeEEPROM(0, 0, 0x01, 1);
+            writeEEPROM(0, 0, EbmBusEEPROM::FanAddress, 1);
         else
-            writeEEPROM(0, 0, 0x01, fanaddress);
+            writeEEPROM(0, 0, EbmBusEEPROM::FanAddress, fanaddress);
         m_dciState = ReadSerialnumber_1;
         break;
     case ReadSerialnumber_1:
-        readEEPROM(0, 0, 0x83);
+        readEEPROM(0, 0, EbmBusEEPROM::SerialNumber_Byte_2);
         m_dciState = ReadSerialnumber_2;
         break;
     case ReadSerialnumber_2:
-        readEEPROM(0, 0, 0x84);
+        readEEPROM(0, 0, EbmBusEEPROM::SerialNumber_Byte_1);
         m_dciState = ReadSerialnumber_3;
         break;
     case ReadSerialnumber_3:
-        readEEPROM(0, 0, 0x85);
+        readEEPROM(0, 0, EbmBusEEPROM::SerialNumber_Byte_0);
         m_dciState = RelaisOn;
         break;
     case RelaisOn:
-        writeEEPROM(0, 0, 0x9d, 0xff);
+        writeEEPROM(0, 0, EbmBusEEPROM::DCIrelais, 0xff);
         m_dciState = OutLow_2;
         break;
     case OutLow_2:

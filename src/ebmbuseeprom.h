@@ -91,6 +91,10 @@ public:
         DClinkVoltageMin = 0x97,
         LineVoltageMin = 0x98,
 
+        // DCIrelais is undocumented in the official EEPROM address reference, be careful!
+        // It is used for daisy chain addressing.
+        DCIrelais = 0x9d,
+
         ReferenceDClinkVoltage_MSB = 0xC7,
         ReferenceDClinkVoltage_LSB = 0xC8,
         ReferenceDClinkCurrent_MSB = 0xC9,
