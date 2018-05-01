@@ -5,10 +5,12 @@
 #define EBMBUS_H
 
 #include "ebmbus_global.h"
+#include "ebmbustelegram.h"
 #include <QObject>
 #include <QtSerialPort/QSerialPort>
 #include <QStringList>
 #include <QTimer>
+#include <QList>
 
 class EBMBUSSHARED_EXPORT EbmBus : public QObject
 {
@@ -20,32 +22,22 @@ public:
     bool open();
     void close();
 
-    typedef enum {
-        GetStatus = 0x00,
-        GetActualSpeed = 0x01,
-        SetSetpoint = 0x02,
-        SoftwareReset = 0x03,
-        Diagnosis = 0x05,
-        EEPROMwrite = 0x06,
-        EEPROMread = 0x07
-    } Command;
-
     // High level access
-    void getSimpleStatus(quint8 fanAddress, quint8 fanGroup);
-    void getStatus(quint8 fanAddress, quint8 fanGroup, quint8 statusAddress);
-    void getActualSpeed(quint8 fanAddress, quint8 fanGroup);
-    void setSpeedSetpoint(quint8 fanAddress, quint8 fanGroup, quint8 speed);
-    void softwareReset(quint8 fanAddress, quint8 fanGroup);
-    void diagnosis(quint8 fanAddress, quint8 fanGroup, quint8 c, quint16 a, QByteArray d);
-    void writeEEPROM(quint8 fanAddress, quint8 fanGroup, quint8 eepromAddress, quint8 eepromData);
-    void readEEPROM(quint8 fanAddress, quint8 fanGroup, quint8 eepromAddress);
+    quint64 getSimpleStatus(quint8 fanAddress, quint8 fanGroup);
+    quint64 getStatus(quint8 fanAddress, quint8 fanGroup, quint8 statusAddress);
+    quint64 getActualSpeed(quint8 fanAddress, quint8 fanGroup);
+    quint64 setSpeedSetpoint(quint8 fanAddress, quint8 fanGroup, quint8 speed);
+    quint64 softwareReset(quint8 fanAddress, quint8 fanGroup);
+    quint64 diagnosis(quint8 fanAddress, quint8 fanGroup, quint8 c, quint16 a, QByteArray d);
+    quint64 writeEEPROM(quint8 fanAddress, quint8 fanGroup, quint8 eepromAddress, quint8 eepromData);
+    quint64 readEEPROM(quint8 fanAddress, quint8 fanGroup, quint8 eepromAddress);
     void startDaisyChainAddressing();
     void clearAllAddresses();
     bool isDaisyChainInProgress();
 
-    // Low level access
-    void writeTelegramRaw(quint8 preamble, quint8 commandAndFanaddress, quint8 fanGroup, QByteArray data);
-    void writeTelegram(Command command, quint8 fanAddress, quint8 fanGroup, QByteArray data, bool servicebit = false);
+    // Low level access; writes to queue that is fed to the byte level access layer
+    // Returns the assigned telegram id, which is unique
+    quint64 writeTelegramToQueue(EbmBusTelegram* telegram);
 
 private:
     QString m_interface;
@@ -53,8 +45,11 @@ private:
     QByteArray m_readBuffer;
     QStringList m_serialnumbers;
     QTimer m_dciTimer;
+    QTimer m_requestTimer;
     bool m_dciClear;    // If this bit is set, DCI addressing will set (1,1) for all addresses (set all to factory default)
     bool m_transactionPending;
+    QList<EbmBusTelegram*> m_telegramQueue;
+    EbmBusTelegram* m_currentTelegram;
 
     typedef enum {
         Idle = 0,
@@ -72,19 +67,36 @@ private:
 
     DCI_State m_dciState;
 
-    void tryToParseResponse(QByteArray *buffer);
+    // Low level access; writes immediately to the bus
+    quint64 writeTelegramNow(EbmBusTelegram* telegram);
+    void writeTelegramRawNow(quint8 preamble, quint8 commandAndFanaddress, quint8 fanGroup, QByteArray data);
+    void tryToParseResponseRaw(QByteArray *buffer);
+    void parseResponse(quint64 id, quint8 preamble, quint8 commandAndFanaddress, quint8 fanGroup, QByteArray data);
 
 signals:
-    void signal_response(quint8 preamble, quint8 commandAndFanaddress, quint8 fanGroup, QByteArray data);
+    void signal_responseRaw(quint64 telegramID, quint8 preamble, quint8 commandAndFanaddress, quint8 fanGroup, QByteArray data);
+    void signal_transactionFinished();
+    void signal_transactionLost(quint64 id);
     void signal_setDCIoutput(bool on);
     void signal_DaisyChainAdressingFinished();
+
+    // High level response signals
+    void signal_simpleStatus(quint64 telegramID, quint8 fanAddress, quint8 fanGroup, QString status);
+    void signal_status(quint64 telegramID, quint8 fanAddress, quint8 fanGroup, quint8 statusAddress, QString status, quint8 rawValue);
+    void signal_actualSpeed(quint64 telegramID, quint8 fanAddress, quint8 fanGroup, quint8 actualRawSpeed);
+    void signal_setPointHasBeenSet(quint64 telegramID, quint8 fanAddress, quint8 fanGroup);
+    void signal_EEPROMhasBeenWritten(quint64 telegramID, quint8 fanAddress, quint8 fanGroup);
+    void signal_EEPROMdata(quint64 telegramID, quint8 fanAddress, quint8 fanGroup, quint8 dataByte);
+    // Todo: Implement more high level response signals
 
 public slots:
     void slot_DCIloopResponse(bool on);
 
 private slots:
+    void slot_tryToSendNextTelegram();
     void slot_readyRead();
     void slot_dciTask();
+    void slot_requestTimer_fired();
 };
 
 #endif // EBMBUS_H

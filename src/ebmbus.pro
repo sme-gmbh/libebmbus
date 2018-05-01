@@ -15,10 +15,12 @@ TEMPLATE = lib
 
 DEFINES += EBMBUS_LIBRARY
 
-SOURCES += ebmbus.cpp
+SOURCES += ebmbus.cpp \
+    ebmbustelegram.cpp
 
 HEADERS += ebmbus.h \
-    ebmbus_global.h
+    ebmbus_global.h \
+    ebmbustelegram.h
 
 linux-g++: QMAKE_TARGET.arch = $$QMAKE_HOST.arch
 linux-g++-32: QMAKE_TARGET.arch = x86
