@@ -283,7 +283,7 @@ void EbmBus::parseResponse(quint64 id, quint8 preamble, quint8 commandAndFanaddr
                 str = "No errors in low byte status.";
             break;
 
-            emit signal_simpleStatus(id, fanAddress, fanGroup, str);
+            emit signal_simpleStatus(id, fanAddress, fanGroup, str.trimmed());
         }
         else if (data.length() == 2)
         {
@@ -430,7 +430,7 @@ void EbmBus::parseResponse(quint64 id, quint8 preamble, quint8 commandAndFanaddr
                 str = "Unsupported status address in request.";
             }
 
-            emit signal_status(id, fanAddress, fanGroup, statusAddress, str, value);
+            emit signal_status(id, fanAddress, fanGroup, statusAddress, str.trimmed(), value);
         }
         break;
     case EbmBusCommand::GetActualSpeed:
