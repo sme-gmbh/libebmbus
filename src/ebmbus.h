@@ -4,13 +4,15 @@
 #ifndef EBMBUS_H
 #define EBMBUS_H
 
-#include "ebmbus_global.h"
-#include "ebmbustelegram.h"
 #include <QObject>
 #include <QtSerialPort/QSerialPort>
 #include <QStringList>
 #include <QTimer>
 #include <QList>
+
+#include "ebmbus_global.h"
+#include "ebmbustelegram.h"
+
 
 class EBMBUSSHARED_EXPORT EbmBus : public QObject
 {

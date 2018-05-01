@@ -50,27 +50,27 @@ void EbmBus::close()
 
 quint64 EbmBus::getSimpleStatus(quint8 fanAddress, quint8 fanGroup)
 {
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusTelegram::GetStatus, fanAddress, fanGroup, QByteArray()));
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::GetStatus, fanAddress, fanGroup, QByteArray()));
 }
 
 quint64 EbmBus::getStatus(quint8 fanAddress, quint8 fanGroup, quint8 statusAddress)
 {
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusTelegram::GetStatus, fanAddress, fanGroup, QByteArray(1, statusAddress)));
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::GetStatus, fanAddress, fanGroup, QByteArray(1, statusAddress)));
 }
 
 quint64 EbmBus::getActualSpeed(quint8 fanAddress, quint8 fanGroup)
 {
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusTelegram::GetActualSpeed, fanAddress, fanGroup, QByteArray()));
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::GetActualSpeed, fanAddress, fanGroup, QByteArray()));
 }
 
 quint64 EbmBus::setSpeedSetpoint(quint8 fanAddress, quint8 fanGroup, quint8 speed)
 {
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusTelegram::SetSetpoint, fanAddress, fanGroup, QByteArray(1, speed)));
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::SetSetpoint, fanAddress, fanGroup, QByteArray(1, speed)));
 }
 
 quint64 EbmBus::softwareReset(quint8 fanAddress, quint8 fanGroup)
 {
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusTelegram::SoftwareReset, fanAddress, fanGroup, QByteArray()));
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::SoftwareReset, fanAddress, fanGroup, QByteArray()));
 }
 
 quint64 EbmBus::diagnosis(quint8 fanAddress, quint8 fanGroup, quint8 c, quint16 a, QByteArray d)
@@ -92,12 +92,12 @@ quint64 EbmBus::writeEEPROM(quint8 fanAddress, quint8 fanGroup, quint8 eepromAdd
     payload.append(eepromAddress);
     payload.append(eepromData);
 
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusTelegram::EEPROMwrite, fanAddress, fanGroup, payload));
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::EEPROMwrite, fanAddress, fanGroup, payload));
 }
 
 quint64 EbmBus::readEEPROM(quint8 fanAddress, quint8 fanGroup, quint8 eepromAddress)
 {
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusTelegram::EEPROMread, fanAddress, fanGroup, QByteArray(1, eepromAddress)));
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::EEPROMread, fanAddress, fanGroup, QByteArray(1, eepromAddress)));
 }
 
 void EbmBus::startDaisyChainAddressing()
@@ -179,7 +179,7 @@ void EbmBus::writeTelegramRawNow(quint8 preamble, quint8 commandAndFanaddress, q
 
 quint64 EbmBus::writeTelegramNow(EbmBusTelegram* telegram)
 {
-    EbmBusTelegram::Command command = telegram->command;
+    EbmBusCommand::Command command = telegram->command;
     quint8 commandAndFanaddress = telegram->fanAddress;
     quint8 fanGroup = telegram->fanGroup;
     QByteArray data = telegram->data;
@@ -249,7 +249,7 @@ void EbmBus::parseResponse(quint64 id, quint8 preamble, quint8 commandAndFanaddr
     quint8 fanAddress = commandAndFanaddress & 0x1f;
 
     switch (command) {
-    case EbmBusTelegram::GetStatus:
+    case EbmBusCommand::GetStatus:
         if (data.length() == 1)
         {
             QString status;
@@ -264,7 +264,7 @@ void EbmBus::parseResponse(quint64 id, quint8 preamble, quint8 commandAndFanaddr
 
             switch (statusAddress)
             {
-            case EbmBusTelegram::MotorStatusLowByte:
+            case EbmBusStatus::MotorStatusLowByte:
                 if (value & 0x80)
                     str += "Blocked Motor; ";
                 if (value & 0x40)
@@ -285,7 +285,7 @@ void EbmBus::parseResponse(quint64 id, quint8 preamble, quint8 commandAndFanaddr
                 if (str.isEmpty())
                     str = "No errors in low byte status.";
                 break;
-            case EbmBusTelegram::MotorStatusHighByte:
+            case EbmBusStatus::MotorStatusHighByte:
                 if (value & 0x80)
                     str += "Brake error; ";
                 if (value & 0x40)
@@ -306,7 +306,7 @@ void EbmBus::parseResponse(quint64 id, quint8 preamble, quint8 commandAndFanaddr
                 if (str.isEmpty())
                     str = "No errors in high byte status.";
                 break;
-            case EbmBusTelegram::Warnings:
+            case EbmBusStatus::Warnings:
                 if (value & 0x80)
                     str += "Unknown warning - 0x80; ";
                 if (value & 0x40)
@@ -327,22 +327,22 @@ void EbmBus::parseResponse(quint64 id, quint8 preamble, quint8 commandAndFanaddr
                 if (str.isEmpty())
                     str = "No warnings.";
                 break;
-            case EbmBusTelegram::DCvoltage:
+            case EbmBusStatus::DCvoltage:
                 str = QString().sprintf("DC voltage raw value: %i", value); // Reference at EEPROM-ADR C7 (MSB) + C8 (LSB), get these first for further calculation
                 break;
-            case EbmBusTelegram::DCcurrent:
+            case EbmBusStatus::DCcurrent:
                 str = QString().sprintf("DC current raw value: %i", value); // Reference at EEPROM-ADR C9 (MSB) + CA (LSB), get these first for further calculation
                 break;
-            case EbmBusTelegram::TemperatureOfPowerModule:
+            case EbmBusStatus::TemperatureOfPowerModule:
                 str = QString().sprintf("Power module temperature: %i °C", value);
                 break;
-            case EbmBusTelegram::SetPoint:
+            case EbmBusStatus::SetPoint:
                 str = QString().sprintf("Target speed setpoint raw: %i", value);
                 break;
-            case EbmBusTelegram::ActualValue:
+            case EbmBusStatus::ActualValue:
                 str = QString().sprintf("Actual speed raw: %i", value);     // Note that identification == 9 type motors do not provide this data
                 break;
-            case EbmBusTelegram::ModeOfControl:
+            case EbmBusStatus::ModeOfControl:
                 if (value == 0)
                     str = "Open loop PWM control";
                 else if (value == 1)
@@ -352,49 +352,49 @@ void EbmBus::parseResponse(quint64 id, quint8 preamble, quint8 commandAndFanaddr
                 else
                     str = "EbmBusTelegram::ModeOfControl unkown mode";
                 break;
-            case EbmBusTelegram::DirectionOfRotation:
+            case EbmBusStatus::DirectionOfRotation:
                 if (value == 0)
                     str = "Rotation counter clock wise";
                 if (value == 1)
                     str = "Rotation clock wise";
                 break;
-            case EbmBusTelegram::PWMdutyCycle:
+            case EbmBusStatus::PWMdutyCycle:
                 str = QString().sprintf("PWM duty cycle: %i", value);
                 break;
-            case EbmBusTelegram::SteppingSwitch_1_2:
+            case EbmBusStatus::SteppingSwitch_1_2:
                 str = "Request type not supported yet.";
                 break;
-            case EbmBusTelegram::SteppingSwitch_3_4:
+            case EbmBusStatus::SteppingSwitch_3_4:
                 str = "Request type not supported yet.";
                 break;
-            case EbmBusTelegram::TemperatureOfMotor:
+            case EbmBusStatus::TemperatureOfMotor:
                 str = QString().sprintf("Motor temperature: %i °C", value);
                 break;
-            case EbmBusTelegram::LineVoltage:
+            case EbmBusStatus::LineVoltage:
                 str = "Request type not supported yet.";
                 break;
-            case EbmBusTelegram::LineCurrent:
+            case EbmBusStatus::LineCurrent:
                 str = "Request type not supported yet.";
                 break;
-            case EbmBusTelegram::MaxVolumetricFlowRate:
+            case EbmBusStatus::MaxVolumetricFlowRate:
                 str = "Request type not supported yet.";
                 break;
-            case EbmBusTelegram::MinVolumericFlowRate:
+            case EbmBusStatus::MinVolumericFlowRate:
                 str = "Request type not supported yet.";
                 break;
-            case EbmBusTelegram::MaxPressure:
+            case EbmBusStatus::MaxPressure:
                 str = "Request type not supported yet.";
                 break;
-            case EbmBusTelegram::MinPressure:
+            case EbmBusStatus::MinPressure:
                 str = "Request type not supported yet.";
                 break;
-            case EbmBusTelegram::ElectronicBoxTemperature:
+            case EbmBusStatus::ElectronicBoxTemperature:
                 str = QString().sprintf("Electronic box temperature: %i °C", value);
                 break;
-            case EbmBusTelegram::EEPROMchecksumLSB:
+            case EbmBusStatus::EEPROMchecksumLSB:
                 str = QString().sprintf("EEPROM checksum LSB: %i", value);
                 break;
-            case EbmBusTelegram::EEPROMchecksumMSB:
+            case EbmBusStatus::EEPROMchecksumMSB:
                 str = QString().sprintf("EEPROM checksum MSB: %i", value);
                 break;
             default:
@@ -404,24 +404,24 @@ void EbmBus::parseResponse(quint64 id, quint8 preamble, quint8 commandAndFanaddr
             emit signal_status(id, fanAddress, fanGroup, statusAddress, str, value);
         }
         break;
-    case EbmBusTelegram::GetActualSpeed:
+    case EbmBusCommand::GetActualSpeed:
         if (data.length() == 1)
         {
             quint8 actualRawSpeed = data.at(0);
             emit signal_actualSpeed(id, fanAddress, fanGroup, actualRawSpeed);
         }
         break;
-    case EbmBusTelegram::SetSetpoint:
+    case EbmBusCommand::SetSetpoint:
         emit signal_setPointHasBeenSet(id, fanAddress, fanGroup);
         break;
-    case EbmBusTelegram::SoftwareReset:
+    case EbmBusCommand::SoftwareReset:
         break;
-    case EbmBusTelegram::Diagnosis:
+    case EbmBusCommand::Diagnosis:
         break;
-    case EbmBusTelegram::EEPROMwrite:
+    case EbmBusCommand::EEPROMwrite:
         emit signal_EEPROMhasBeenWritten(id, fanAddress, fanGroup);
         break;
-    case EbmBusTelegram::EEPROMread:
+    case EbmBusCommand::EEPROMread:
         if (data.length() == 1)
         {
             quint8 dataByte = data.at(0);
@@ -454,13 +454,14 @@ void EbmBus::slot_readyRead()
 
 void EbmBus::slot_dciTask()
 {
-    int groupaddress = 2;
-    static int fanaddress = 2;
+    static int groupaddress = 2;
+    int fanaddress = 2;
 
     switch (m_dciState)
     {
     case Idle:
         fanaddress = 2; // Todo: dynamic addressing by user selectable address table
+        //groupaddress =
         m_dciState = OutLow_1;
         break;
     case OutLow_1:
@@ -479,14 +480,14 @@ void EbmBus::slot_dciTask()
         if (m_dciClear)
             writeEEPROM(0, 0, 0x00, 1);
         else
-            writeEEPROM(0, 0, 0x00, groupaddress);
+            writeEEPROM(0, 0, 0x00, groupaddress++);
         m_dciState = AddressingFA;
         break;
     case AddressingFA:
         if (m_dciClear)
             writeEEPROM(0, 0, 0x01, 1);
         else
-            writeEEPROM(0, 0, 0x01, fanaddress++);
+            writeEEPROM(0, 0, 0x01, fanaddress);
         m_dciState = ReadSerialnumber_1;
         break;
     case ReadSerialnumber_1:

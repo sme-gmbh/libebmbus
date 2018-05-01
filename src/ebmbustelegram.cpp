@@ -11,7 +11,7 @@ EbmBusTelegram::EbmBusTelegram()
     needsAnswer = false;
 }
 
-EbmBusTelegram::EbmBusTelegram(EbmBusTelegram::Command command, quint8 fanAddress, quint8 fanGroup, QByteArray data, bool servicebit)
+EbmBusTelegram::EbmBusTelegram(EbmBusCommand::Command command, quint8 fanAddress, quint8 fanGroup, QByteArray data, bool servicebit)
 {
     static quint64 id = 0;
     this->m_id = id;
