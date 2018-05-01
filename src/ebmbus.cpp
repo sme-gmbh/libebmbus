@@ -281,7 +281,6 @@ void EbmBus::parseResponse(quint64 id, quint8 preamble, quint8 commandAndFanaddr
 
             if (str.isEmpty())
                 str = "No errors in low byte status.";
-            break;
 
             emit signal_simpleStatus(id, fanAddress, fanGroup, str.trimmed());
         }
