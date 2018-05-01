@@ -252,7 +252,7 @@ void EbmBus::parseResponse(quint64 id, quint8 preamble, quint8 commandAndFanaddr
 {
     Q_UNUSED(preamble);
 
-    quint8 command = (commandAndFanaddress >> 5) & 0x08;
+    quint8 command = (commandAndFanaddress >> 5) & 0x07;
     quint8 fanAddress = commandAndFanaddress & 0x1f;
 
     switch (command) {
