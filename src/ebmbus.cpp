@@ -144,7 +144,10 @@ void EbmBus::slot_tryToSendNextTelegram()
     if (m_currentTelegram == NULL)
     {
         if (m_telegramQueue.isEmpty())
+        {
+            m_transactionPending = false;
             return;
+        }
         m_currentTelegram = m_telegramQueue.takeFirst();
     }
 
@@ -244,7 +247,7 @@ void EbmBus::tryToParseResponseRaw(QByteArray* buffer)
     if (cs == 0)    // checksum ok
     {
         m_requestTimer.stop();
-        m_transactionPending = false;
+        //m_transactionPending = false;
         emit signal_responseRaw(m_currentTelegram->getID(), preamble, commandAndFanaddress, fanGroup, data);
         parseResponse(m_currentTelegram->getID(), preamble, commandAndFanaddress, fanGroup, data);
         emit signal_transactionFinished();
