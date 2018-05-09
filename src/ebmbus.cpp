@@ -41,6 +41,8 @@ bool EbmBus::open()
     m_port->setParity(QSerialPort::NoParity);
     m_port->setStopBits(QSerialPort::OneStop);
     m_port->setFlowControl(QSerialPort::NoFlowControl);
+    m_port->setBreakEnabled(false);
+    m_port->setTextModeEnabled(false);
     connect(m_port, SIGNAL(readyRead()), this, SLOT(slot_readyRead()));
     return m_port->open(QIODevice::ReadWrite);
 }
@@ -198,7 +200,8 @@ void EbmBus::writeTelegramRawNow(quint8 preamble, quint8 commandAndFanaddress, q
     out.append(cs);
 
     m_port->write(out);
-    m_port->waitForBytesWritten(100);
+    m_port->flush();
+//    m_port->waitForBytesWritten(100);
 }
 
 quint64 EbmBus::writeTelegramNow(EbmBusTelegram* telegram)
@@ -493,7 +496,10 @@ void EbmBus::slot_readyRead()
 {
     while (!m_port->atEnd())
     {
-        m_readBuffer += m_port->read(1);
+        //m_readBuffer += m_port->read(1);
+        char c;
+        m_port->getChar(&c);
+        m_readBuffer.append(c);
 
         tryToParseResponseRaw(&m_readBuffer);
     }
