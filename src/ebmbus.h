@@ -9,6 +9,7 @@
 #include <QStringList>
 #include <QTimer>
 #include <QList>
+#include <QMutex>
 
 #include "ebmbus_global.h"
 #include "ebmbustelegram.h"
@@ -57,6 +58,7 @@ private:
     int m_dci_fanAddress;
 
     bool m_transactionPending;
+    QMutex m_telegramQueueMutex;
     QList<EbmBusTelegram*> m_telegramQueue;
     EbmBusTelegram* m_currentTelegram;
 

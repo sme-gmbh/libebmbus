@@ -132,6 +132,7 @@ bool EbmBus::isDaisyChainInProgress()
 
 void EbmBus::slot_tryToSendNextTelegram()
 {
+    m_telegramQueueMutex.lock();
     // Delete last telegram if it exists
     // If repeat counter is not zero, then repeat current telegram, otherwise take new
     // telegram from the queue
@@ -145,23 +146,30 @@ void EbmBus::slot_tryToSendNextTelegram()
     {
         if (m_telegramQueue.isEmpty())
         {
-            m_transactionPending = false;
+            m_telegramQueueMutex.unlock();
             return;
         }
         m_currentTelegram = m_telegramQueue.takeFirst();
     }
 
-    m_transactionPending = true;
     m_requestTimer.start();
+    m_telegramQueueMutex.unlock();
+
     writeTelegramNow(m_currentTelegram);
 }
 
 quint64 EbmBus::writeTelegramToQueue(EbmBusTelegram *telegram)
 {
+    m_telegramQueueMutex.lock();
     m_telegramQueue.append(telegram);
 
-    if (!m_transactionPending)
+    if (!m_telegramQueue.length() == 1) // If we inserted the first packet, we have to start the sending process
+    {
+        m_telegramQueueMutex.unlock();
         slot_tryToSendNextTelegram();
+    }
+    else
+        m_telegramQueueMutex.unlock();
 
     return telegram->getID();
 }
@@ -247,7 +255,6 @@ void EbmBus::tryToParseResponseRaw(QByteArray* buffer)
     if (cs == 0)    // checksum ok
     {
         m_requestTimer.stop();
-        //m_transactionPending = false;
         emit signal_responseRaw(m_currentTelegram->getID(), preamble, commandAndFanaddress, fanGroup, data);
         parseResponse(m_currentTelegram->getID(), preamble, commandAndFanaddress, fanGroup, data);
         emit signal_transactionFinished();
