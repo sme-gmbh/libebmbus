@@ -163,7 +163,7 @@ quint64 EbmBus::writeTelegramToQueue(EbmBusTelegram *telegram)
     m_telegramQueueMutex.lock();
     m_telegramQueue.append(telegram);
 
-    if (!m_telegramQueue.length() == 1) // If we inserted the first packet, we have to start the sending process
+    if (m_telegramQueue.length() == 1) // If we inserted the first packet, we have to start the sending process
     {
         m_telegramQueueMutex.unlock();
         slot_tryToSendNextTelegram();
