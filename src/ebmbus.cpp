@@ -41,10 +41,11 @@ bool EbmBus::open()
     m_port->setParity(QSerialPort::NoParity);
     m_port->setStopBits(QSerialPort::OneStop);
     m_port->setFlowControl(QSerialPort::NoFlowControl);
+    connect(m_port, SIGNAL(readyRead()), this, SLOT(slot_readyRead()));
+    bool openOK = m_port->open(QIODevice::ReadWrite);
     m_port->setBreakEnabled(false);
     m_port->setTextModeEnabled(false);
-    connect(m_port, SIGNAL(readyRead()), this, SLOT(slot_readyRead()));
-    return m_port->open(QIODevice::ReadWrite);
+    return openOK;
 }
 
 void EbmBus::close()
