@@ -15,7 +15,7 @@ EbmBus::EbmBus(QObject *parent, QString interface) : QObject(parent)
     m_dci_currentSerialNumber_byte_1 = 0;
     m_dci_currentSerialNumber_byte_2 = 0;
 
-    connect(this, SIGNAL(signal_transactionFinished()), this, SLOT(slot_tryToSendNextTelegram()));
+//    connect(this, SIGNAL(signal_transactionFinished()), this, SLOT(slot_tryToSendNextTelegram()));
 
     m_dciClear = false;
     m_dciTimer.setInterval(200);
@@ -25,6 +25,12 @@ EbmBus::EbmBus(QObject *parent, QString interface) : QObject(parent)
     m_requestTimer.setSingleShot(true);
     m_requestTimer.setInterval(200);
     connect(&m_requestTimer, SIGNAL(timeout()), this, SLOT(slot_requestTimer_fired()));
+
+    // This timer delays tx after rx to wait for line clearance
+    m_delayTxTimer.setSingleShot(true);
+    m_delayTxTimer.setInterval(10);
+    connect(this, SIGNAL(signal_transactionFinished()), &m_delayTxTimer, SLOT(start()));
+    connect(&m_delayTxTimer, SIGNAL(timeout()), this, SLOT(slot_tryToSendNextTelegram()));
 }
 
 EbmBus::~EbmBus()

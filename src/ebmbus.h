@@ -47,8 +47,9 @@ private:
     QSerialPort* m_port;
     QByteArray m_readBuffer;
     QStringList m_serialnumbers;
-    QTimer m_dciTimer;
-    QTimer m_requestTimer;
+    QTimer m_dciTimer;      // This timer controlles the state machine for dci addressing
+    QTimer m_requestTimer;  // This timer controlles timeout of telegrams with answer and sending timeslots for telegrams without answer
+    QTimer m_delayTxTimer;  // This timer delays switching to rs-485 tx after rs-485 rx (line clearance time)
     bool m_dciClear;    // If this bit is set, DCI addressing will set (1,1) for all addresses (set all to factory default)
     quint8 m_dci_currentSerialNumber_byte_0;
     quint8 m_dci_currentSerialNumber_byte_1;
