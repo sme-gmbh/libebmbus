@@ -206,9 +206,11 @@ void EbmBus::writeTelegramRawNow(quint8 preamble, quint8 commandAndFanaddress, q
 
     out.append(cs);
 
-    m_port->write(out);
-    m_port->flush();
-//    m_port->waitForBytesWritten(100);
+    if (m_port->isOpen())
+    {
+        m_port->write(out);
+        m_port->flush();
+    }
 }
 
 quint64 EbmBus::writeTelegramNow(EbmBusTelegram* telegram)
