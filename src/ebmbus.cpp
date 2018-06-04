@@ -592,7 +592,7 @@ void EbmBus::slot_dciReceivedEEPROMdata(quint64 telegramID, quint8 fanAddress, q
         m_dci_currentSerialNumber_byte_0 = dataByte;
 
         quint32 serialNumber = ((m_dci_currentSerialNumber_byte_2 << 16) | (m_dci_currentSerialNumber_byte_1 << 8) | m_dci_currentSerialNumber_byte_0);
-        emit signal_DaisyChainAddressingGotSerialNumber(m_dci_fanAddress, m_dci_groupAddress, serialNumber);
+        emit signal_DaisyChainAddressingGotSerialNumber(m_dci_groupAddress - 2, m_dci_fanAddress, m_dci_groupAddress, serialNumber);
     }
 }
 

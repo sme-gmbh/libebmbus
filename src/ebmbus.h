@@ -90,7 +90,7 @@ signals:
     void signal_transactionFinished();
     void signal_transactionLost(quint64 id);
     void signal_setDCIoutput(bool on);
-    void signal_DaisyChainAddressingGotSerialNumber(quint8 fanAddress, quint8 fanGroup, quint32 serialNumber);
+    void signal_DaisyChainAddressingGotSerialNumber(quint8 unit, quint8 fanAddress, quint8 fanGroup, quint32 serialNumber);
     void signal_DaisyChainAdressingFinished();
 
     // High level response signals
