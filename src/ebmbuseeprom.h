@@ -24,8 +24,8 @@ public:
         TargetValue_0 = 0x0E,
         TargetValue_1 = 0x0F,
 
-        OperationModes_2 = 0x20,
-        RatingFactor = 0x21,
+        OperationModes_2 = 0x10,
+        RatingFactor = 0x11,
 
         // Sensor values coded in IEEE754
         SensorValueMin_Byte_1 = 0x18,
