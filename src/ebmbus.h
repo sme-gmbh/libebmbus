@@ -31,10 +31,11 @@ class EBMBUSSHARED_EXPORT EbmBus : public QObject
 {
     Q_OBJECT
 public:
-    explicit EbmBus(QObject *parent, QString interface);
+    explicit EbmBus(QObject *parent, QString interface_startOfLoop, QString interface_endOfLoop = QString());
     ~EbmBus();
 
     bool open();
+    bool isOpen();
     void close();
 
     // High level access
@@ -55,9 +56,12 @@ public:
     quint64 writeTelegramToQueue(EbmBusTelegram* telegram);
 
 private:
-    QString m_interface;
-    QSerialPort* m_port;
-    QByteArray m_readBuffer;
+    QString m_interface_startOfLoop;
+    QString m_interface_endOfLoop;
+    QSerialPort* m_port_startOfLoop;
+    QSerialPort* m_port_endOfLoop;
+    QByteArray m_readBuffer_startOfLoop;
+    QByteArray m_readBuffer_endOfLoop;
     QStringList m_serialnumbers;
     QTimer m_dciTimer;      // This timer controlles the state machine for dci addressing
     QTimer m_requestTimer;  // This timer controlles timeout of telegrams with answer and sending timeslots for telegrams without answer
@@ -105,6 +109,8 @@ signals:
     void signal_DaisyChainAddressingGotSerialNumber(quint8 unit, quint8 fanAddress, quint8 fanGroup, quint32 serialNumber);
     void signal_DaisyChainAdressingFinished();
 
+    void signal_senderEchoReceived();
+
     // High level response signals
     void signal_simpleStatus(quint64 telegramID, quint8 fanAddress, quint8 fanGroup, QString status);
     void signal_status(quint64 telegramID, quint8 fanAddress, quint8 fanGroup, quint8 statusAddress, QString status, quint8 rawValue);
@@ -119,7 +125,8 @@ public slots:
 
 private slots:
     void slot_tryToSendNextTelegram();
-    void slot_readyRead();
+    void slot_readyRead_startOfLoop();
+    void slot_readyRead_endOfLoop();
     void slot_dciTask();
     void slot_dciReceivedEEPROMdata(quint64 telegramID, quint8 fanAddress, quint8 fanGroup, EbmBusEEPROM::EEPROMaddress eepromAddress, quint8 dataByte);
     void slot_requestTimer_fired();

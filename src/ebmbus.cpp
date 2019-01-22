@@ -15,10 +15,15 @@
 
 #include "ebmbus.h"
 
-EbmBus::EbmBus(QObject *parent, QString interface) : QObject(parent)
+EbmBus::EbmBus(QObject *parent, QString interface_startOfLoop, QString interface_endOfLoop) : QObject(parent)
 {
-    m_interface = interface;
-    m_port = new QSerialPort(interface, this);
+    m_interface_startOfLoop = interface_startOfLoop;
+    m_interface_endOfLoop = interface_endOfLoop;
+    m_port_startOfLoop = new QSerialPort(interface_startOfLoop, this);
+    if (!interface_endOfLoop.isEmpty())
+        m_port_endOfLoop = new QSerialPort(interface_endOfLoop, this);
+    else
+        m_port_endOfLoop = NULL;
     m_transactionPending = false;
     m_currentTelegram = NULL;
     m_dci_telegramID = 0;
@@ -47,29 +52,74 @@ EbmBus::EbmBus(QObject *parent, QString interface) : QObject(parent)
 
 EbmBus::~EbmBus()
 {
-    if (m_port->isOpen())
+    if (this->isOpen())
         this->close();
-    delete m_port;
+    delete m_port_startOfLoop;
+    delete m_port_startOfLoop;
 }
 
 bool EbmBus::open()
 {
-    m_port->setBaudRate(QSerialPort::Baud9600);
-    m_port->setDataBits(QSerialPort::Data8);
-    m_port->setParity(QSerialPort::NoParity);
-    m_port->setStopBits(QSerialPort::OneStop);
-    m_port->setFlowControl(QSerialPort::NoFlowControl);
-    connect(m_port, SIGNAL(readyRead()), this, SLOT(slot_readyRead()));
-    bool openOK = m_port->open(QIODevice::ReadWrite);
-    m_port->setBreakEnabled(false);
-    m_port->setTextModeEnabled(false);
-    return openOK;
+    bool openFailed = true;
+
+    if (m_port_startOfLoop != NULL)
+    {
+        m_port_startOfLoop->setBaudRate(QSerialPort::Baud9600);
+        m_port_startOfLoop->setDataBits(QSerialPort::Data8);
+        m_port_startOfLoop->setParity(QSerialPort::NoParity);
+        m_port_startOfLoop->setStopBits(QSerialPort::OneStop);
+        m_port_startOfLoop->setFlowControl(QSerialPort::NoFlowControl);
+        connect(m_port_startOfLoop, SIGNAL(readyRead()), this, SLOT(slot_readyRead_startOfLoop()));
+        openFailed = !m_port_startOfLoop->open(QIODevice::ReadWrite);
+        m_port_startOfLoop->setBreakEnabled(false);
+        m_port_startOfLoop->setTextModeEnabled(false);
+    }
+
+    if (m_port_endOfLoop != NULL)
+    {
+        m_port_endOfLoop->setBaudRate(QSerialPort::Baud9600);
+        m_port_endOfLoop->setDataBits(QSerialPort::Data8);
+        m_port_endOfLoop->setParity(QSerialPort::NoParity);
+        m_port_endOfLoop->setStopBits(QSerialPort::OneStop);
+        m_port_endOfLoop->setFlowControl(QSerialPort::NoFlowControl);
+        connect(m_port_endOfLoop, SIGNAL(readyRead()), this, SLOT(slot_readyRead_endOfLoop()));
+        openFailed |= !m_port_endOfLoop->open(QIODevice::ReadWrite);
+        m_port_endOfLoop->setBreakEnabled(false);
+        m_port_endOfLoop->setTextModeEnabled(false);
+    }
+
+    return !openFailed;
+}
+
+bool EbmBus::isOpen()
+{
+    if (m_port_startOfLoop != NULL)
+    {
+        if (m_port_startOfLoop->isOpen())
+            return true;
+    }
+
+    if (m_port_endOfLoop != NULL)
+    {
+        if (m_port_endOfLoop->isOpen())
+            return true;
+    }
+
+    return false;
 }
 
 void EbmBus::close()
 {
-    if (m_port->isOpen())
-        m_port->close();
+    if (m_port_startOfLoop != NULL)
+    {
+        if (m_port_startOfLoop->isOpen())
+            m_port_startOfLoop->close();
+    }
+    if (m_port_endOfLoop != NULL)
+    {
+        if (m_port_endOfLoop->isOpen())
+            m_port_endOfLoop->close();
+    }
 }
 
 // High level access, these functions return the telegram id that can be compared to receives messages to identify the sender
@@ -218,10 +268,10 @@ void EbmBus::writeTelegramRawNow(quint8 preamble, quint8 commandAndFanaddress, q
 
     out.append(cs);
 
-    if (m_port->isOpen())
+    if (m_port_startOfLoop->isOpen())
     {
-        m_port->write(out);
-        m_port->flush();
+        m_port_startOfLoop->write(out);
+        m_port_startOfLoop->flush();
     }
 }
 
@@ -264,6 +314,7 @@ void EbmBus::tryToParseResponseRaw(QByteArray* buffer)
     quint8 fanGroup = buffer->at(2);
 
     quint8 dataLength = preamble >> 5;
+    bool senderEcho = (preamble & 0x04);
 
     if (buffer->size() < 3 + dataLength + 1)
         return;
@@ -279,10 +330,15 @@ void EbmBus::tryToParseResponseRaw(QByteArray* buffer)
 
     if (cs == 0)    // checksum ok
     {
-        m_requestTimer.stop();
-        emit signal_responseRaw(m_currentTelegram->getID(), preamble, commandAndFanaddress, fanGroup, data);
-        parseResponse(m_currentTelegram->getID(), preamble, commandAndFanaddress, fanGroup, data);
-        emit signal_transactionFinished();
+        if (!senderEcho)
+        {
+            m_requestTimer.stop();
+            emit signal_responseRaw(m_currentTelegram->getID(), preamble, commandAndFanaddress, fanGroup, data);
+            parseResponse(m_currentTelegram->getID(), preamble, commandAndFanaddress, fanGroup, data);
+            emit signal_transactionFinished();
+        }
+        else
+            emit signal_senderEchoReceived();   // Todo: decide to repeat telegram from the other side of the loop
     }
 
     buffer->clear();
@@ -513,16 +569,35 @@ void EbmBus::slot_DCIloopResponse(bool on)
     }
 }
 
-void EbmBus::slot_readyRead()
+void EbmBus::slot_readyRead_startOfLoop()
 {
-    while (!m_port->atEnd())
+    if (m_port_startOfLoop == NULL)
+        return;
+
+    while (!m_port_startOfLoop->atEnd())
     {
         //m_readBuffer += m_port->read(1);
         char c;
-        m_port->getChar(&c);
-        m_readBuffer.append(c);
+        m_port_startOfLoop->getChar(&c);
+        m_readBuffer_startOfLoop.append(c);
 
-        tryToParseResponseRaw(&m_readBuffer);
+        tryToParseResponseRaw(&m_readBuffer_startOfLoop);
+    }
+}
+
+void EbmBus::slot_readyRead_endOfLoop()
+{
+    if (m_port_endOfLoop == NULL)
+        return;
+
+    while (!m_port_endOfLoop->atEnd())
+    {
+        //m_readBuffer += m_port->read(1);
+        char c;
+        m_port_endOfLoop->getChar(&c);
+        m_readBuffer_endOfLoop.append(c);
+
+        tryToParseResponseRaw(&m_readBuffer_endOfLoop); // Need to switch this from normal return way to redundancy in some way
     }
 }
 
