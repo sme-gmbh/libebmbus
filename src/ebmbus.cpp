@@ -23,9 +23,9 @@ EbmBus::EbmBus(QObject *parent, QString interface_startOfLoop, QString interface
     if (!interface_endOfLoop.isEmpty())
         m_port_endOfLoop = new QSerialPort(interface_endOfLoop, this);
     else
-        m_port_endOfLoop = NULL;
+        m_port_endOfLoop = nullptr;
     m_transactionPending = false;
-    m_currentTelegram = NULL;
+    m_currentTelegram = nullptr;
     m_dci_telegramID = 0;
 
     m_dci_currentSerialNumber_byte_0 = 0;
@@ -62,7 +62,7 @@ bool EbmBus::open()
 {
     bool openFailed = true;
 
-    if (m_port_startOfLoop != NULL)
+    if (m_port_startOfLoop != nullptr)
     {
         m_port_startOfLoop->setBaudRate(QSerialPort::Baud9600);
         m_port_startOfLoop->setDataBits(QSerialPort::Data8);
@@ -75,7 +75,7 @@ bool EbmBus::open()
         m_port_startOfLoop->setTextModeEnabled(false);
     }
 
-    if (m_port_endOfLoop != NULL)
+    if (m_port_endOfLoop != nullptr)
     {
         m_port_endOfLoop->setBaudRate(QSerialPort::Baud9600);
         m_port_endOfLoop->setDataBits(QSerialPort::Data8);
@@ -93,13 +93,13 @@ bool EbmBus::open()
 
 bool EbmBus::isOpen()
 {
-    if (m_port_startOfLoop != NULL)
+    if (m_port_startOfLoop != nullptr)
     {
         if (m_port_startOfLoop->isOpen())
             return true;
     }
 
-    if (m_port_endOfLoop != NULL)
+    if (m_port_endOfLoop != nullptr)
     {
         if (m_port_endOfLoop->isOpen())
             return true;
@@ -110,12 +110,12 @@ bool EbmBus::isOpen()
 
 void EbmBus::close()
 {
-    if (m_port_startOfLoop != NULL)
+    if (m_port_startOfLoop != nullptr)
     {
         if (m_port_startOfLoop->isOpen())
             m_port_startOfLoop->close();
     }
-    if (m_port_endOfLoop != NULL)
+    if (m_port_endOfLoop != nullptr)
     {
         if (m_port_endOfLoop->isOpen())
             m_port_endOfLoop->close();
@@ -151,11 +151,11 @@ quint64 EbmBus::softwareReset(quint8 fanAddress, quint8 fanGroup)
 
 quint64 EbmBus::diagnosis(quint8 fanAddress, quint8 fanGroup, quint8 c, quint16 a, QByteArray d)
 {
-    Q_UNUSED(fanAddress);
-    Q_UNUSED(fanGroup);
-    Q_UNUSED(c);
-    Q_UNUSED(a);
-    Q_UNUSED(d);
+    Q_UNUSED(fanAddress)
+    Q_UNUSED(fanGroup)
+    Q_UNUSED(c)
+    Q_UNUSED(a)
+    Q_UNUSED(d)
     // tbd.
     return 0;
 }
@@ -207,13 +207,13 @@ void EbmBus::slot_tryToSendNextTelegram()
     // Delete last telegram if it exists
     // If repeat counter is not zero, then repeat current telegram, otherwise take new
     // telegram from the queue
-    if ((m_currentTelegram != NULL) && (m_currentTelegram->repeatCount == 0))
+    if ((m_currentTelegram != nullptr) && (m_currentTelegram->repeatCount == 0))
     {
         delete m_currentTelegram;
-        m_currentTelegram = NULL;
+        m_currentTelegram = nullptr;
     }
 
-    if (m_currentTelegram == NULL)
+    if (m_currentTelegram == nullptr)
     {
         if (m_telegramQueue.isEmpty())
         {
@@ -346,7 +346,7 @@ void EbmBus::tryToParseResponseRaw(QByteArray* buffer)
 
 void EbmBus::parseResponse(quint64 id, quint8 preamble, quint8 commandAndFanaddress, quint8 fanGroup, QByteArray data)
 {
-    Q_UNUSED(preamble);
+    Q_UNUSED(preamble)
 
     quint8 command = (commandAndFanaddress >> 5) & 0x07;
     quint8 fanAddress = commandAndFanaddress & 0x1f;
@@ -571,7 +571,7 @@ void EbmBus::slot_DCIloopResponse(bool on)
 
 void EbmBus::slot_readyRead_startOfLoop()
 {
-    if (m_port_startOfLoop == NULL)
+    if (m_port_startOfLoop == nullptr)
         return;
 
     while (!m_port_startOfLoop->atEnd())
@@ -587,7 +587,7 @@ void EbmBus::slot_readyRead_startOfLoop()
 
 void EbmBus::slot_readyRead_endOfLoop()
 {
-    if (m_port_endOfLoop == NULL)
+    if (m_port_endOfLoop == nullptr)
         return;
 
     while (!m_port_endOfLoop->atEnd())
@@ -663,8 +663,8 @@ void EbmBus::slot_dciTask()
 
 void EbmBus::slot_dciReceivedEEPROMdata(quint64 telegramID, quint8 fanAddress, quint8 fanGroup, EbmBusEEPROM::EEPROMaddress eepromAddress, quint8 dataByte)
 {
-    Q_UNUSED(fanAddress);
-    Q_UNUSED(fanGroup);
+    Q_UNUSED(fanAddress)
+    Q_UNUSED(fanGroup)
 
     // Check if that telegram has been sent by our dci job, otherwise ignore it
     if (telegramID != m_dci_telegramID)
