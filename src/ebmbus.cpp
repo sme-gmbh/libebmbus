@@ -134,19 +134,19 @@ quint64 EbmBus::getStatus(quint8 fanAddress, quint8 fanGroup, EbmBusStatus::Stat
     return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::GetStatus, fanAddress, fanGroup, QByteArray(1, statusAddress)));
 }
 
-quint64 EbmBus::getActualSpeed(quint8 fanAddress, quint8 fanGroup)
+quint64 EbmBus::getActualSpeed(quint8 fanAddress, quint8 fanGroup, bool highPriority)
 {
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::GetActualSpeed, fanAddress, fanGroup, QByteArray()));
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::GetActualSpeed, fanAddress, fanGroup, QByteArray()), highPriority);
 }
 
 quint64 EbmBus::setSpeedSetpoint(quint8 fanAddress, quint8 fanGroup, quint8 speed)
 {
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::SetSetpoint, fanAddress, fanGroup, QByteArray(1, speed)));
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::SetSetpoint, fanAddress, fanGroup, QByteArray(1, speed)), true);
 }
 
 quint64 EbmBus::softwareReset(quint8 fanAddress, quint8 fanGroup)
 {
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::SoftwareReset, fanAddress, fanGroup, QByteArray()));
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::SoftwareReset, fanAddress, fanGroup, QByteArray()), true);
 }
 
 quint64 EbmBus::diagnosis(quint8 fanAddress, quint8 fanGroup, quint8 c, quint16 a, QByteArray d)
@@ -168,12 +168,12 @@ quint64 EbmBus::writeEEPROM(quint8 fanAddress, quint8 fanGroup, EbmBusEEPROM::EE
     payload.append(eepromAddress);
     payload.append(eepromData);
 
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::EEPROMwrite, fanAddress, fanGroup, payload));
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::EEPROMwrite, fanAddress, fanGroup, payload), true);
 }
 
 quint64 EbmBus::readEEPROM(quint8 fanAddress, quint8 fanGroup, EbmBusEEPROM::EEPROMaddress eepromAddress)
 {
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::EEPROMread, fanAddress, fanGroup, QByteArray(1, eepromAddress)));
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::EEPROMread, fanAddress, fanGroup, QByteArray(1, eepromAddress)), true);
 }
 
 void EbmBus::startDaisyChainAddressing()
@@ -201,10 +201,14 @@ bool EbmBus::isDaisyChainInProgress()
         return false;
 }
 
-int EbmBus::getSizeOfTelegramQueue()
+int EbmBus::getSizeOfTelegramQueue(bool highPriorityQueue)
 {
     m_telegramQueueMutex.lock();
-    int size = m_telegramQueue.length();
+    int size;
+    if (highPriorityQueue)
+        size = m_telegramQueue_highPriority.length();
+    else
+        size = m_telegramQueue_standardPriority.length();
     m_telegramQueueMutex.unlock();
     return size;
 }
@@ -223,12 +227,15 @@ void EbmBus::slot_tryToSendNextTelegram()
 
     if (m_currentTelegram == nullptr)
     {
-        if (m_telegramQueue.isEmpty())
+        if (m_telegramQueue_standardPriority.isEmpty() && m_telegramQueue_highPriority.isEmpty())
         {
             m_telegramQueueMutex.unlock();
             return;
         }
-        m_currentTelegram = m_telegramQueue.takeFirst();
+        if (m_telegramQueue_highPriority.isEmpty())
+            m_currentTelegram = m_telegramQueue_standardPriority.takeFirst();
+        else
+            m_currentTelegram = m_telegramQueue_highPriority.takeFirst();
     }
 
     m_requestTimer.start();
@@ -237,11 +244,14 @@ void EbmBus::slot_tryToSendNextTelegram()
     writeTelegramNow(m_currentTelegram);
 }
 
-quint64 EbmBus::writeTelegramToQueue(EbmBusTelegram *telegram)
+quint64 EbmBus::writeTelegramToQueue(EbmBusTelegram *telegram, bool highPriority)
 {
     quint64 telegramID = telegram->getID();
     m_telegramQueueMutex.lock();
-    m_telegramQueue.append(telegram);
+    if (highPriority)
+        m_telegramQueue_highPriority.append(telegram);
+    else
+        m_telegramQueue_standardPriority.append(telegram);
 
     if (!m_requestTimer.isActive()) // If we inserted the first packet, we have to start the sending process
     {

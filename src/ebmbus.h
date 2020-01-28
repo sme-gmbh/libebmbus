@@ -41,7 +41,7 @@ public:
     // High level access
     quint64 getSimpleStatus(quint8 fanAddress, quint8 fanGroup);
     quint64 getStatus(quint8 fanAddress, quint8 fanGroup, EbmBusStatus::StatusAddress statusAddress);
-    quint64 getActualSpeed(quint8 fanAddress, quint8 fanGroup);
+    quint64 getActualSpeed(quint8 fanAddress, quint8 fanGroup, bool highPriority = false);
     quint64 setSpeedSetpoint(quint8 fanAddress, quint8 fanGroup, quint8 speed);
     quint64 softwareReset(quint8 fanAddress, quint8 fanGroup);
     quint64 diagnosis(quint8 fanAddress, quint8 fanGroup, quint8 c, quint16 a, QByteArray d);
@@ -51,11 +51,11 @@ public:
     void clearAllAddresses();
     bool isDaisyChainInProgress();
 
-    int getSizeOfTelegramQueue();
+    int getSizeOfTelegramQueue(bool highPriorityQueue = false);
 
     // Low level access; writes to queue that is fed to the byte level access layer
     // Returns the assigned telegram id, which is unique
-    quint64 writeTelegramToQueue(EbmBusTelegram* telegram);
+    quint64 writeTelegramToQueue(EbmBusTelegram* telegram, bool highPriority = false);
 
 private:
     QString m_interface_startOfLoop;
@@ -78,7 +78,8 @@ private:
 
     bool m_transactionPending;
     QMutex m_telegramQueueMutex;
-    QList<EbmBusTelegram*> m_telegramQueue;
+    QList<EbmBusTelegram*> m_telegramQueue_standardPriority;
+    QList<EbmBusTelegram*> m_telegramQueue_highPriority;
     EbmBusTelegram* m_currentTelegram;
 
     typedef enum {
