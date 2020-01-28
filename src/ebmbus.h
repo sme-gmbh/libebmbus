@@ -51,6 +51,8 @@ public:
     void clearAllAddresses();
     bool isDaisyChainInProgress();
 
+    int getSizeOfTelegramQueue();
+
     // Low level access; writes to queue that is fed to the byte level access layer
     // Returns the assigned telegram id, which is unique
     quint64 writeTelegramToQueue(EbmBusTelegram* telegram);

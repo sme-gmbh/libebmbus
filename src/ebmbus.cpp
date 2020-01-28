@@ -201,6 +201,13 @@ bool EbmBus::isDaisyChainInProgress()
         return false;
 }
 
+int EbmBus::getSizeOfTelegramQueue()
+{
+    m_telegramQueueMutex.lock();
+    return m_telegramQueue.length();
+    m_telegramQueueMutex.unlock();
+}
+
 void EbmBus::slot_tryToSendNextTelegram()
 {
     m_telegramQueueMutex.lock();
