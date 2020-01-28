@@ -16,6 +16,8 @@
 QT       -= core
 QT       += serialport
 
+CONFIG += c++11
+
 TARGET = ebmbus
 TEMPLATE = lib
 
