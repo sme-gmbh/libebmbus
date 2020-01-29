@@ -52,6 +52,7 @@ public:
     bool isDaisyChainInProgress();
 
     int getSizeOfTelegramQueue(bool highPriorityQueue = false);
+    void clearTelegramQueue(bool highPriorityQueue = false);
 
     // Low level access; writes to queue that is fed to the byte level access layer
     // Returns the assigned telegram id, which is unique
