@@ -215,10 +215,12 @@ int EbmBus::getSizeOfTelegramQueue(bool highPriorityQueue)
 
 void EbmBus::clearTelegramQueue(bool highPriorityQueue)
 {
+    m_telegramQueueMutex.lock();
     if (highPriorityQueue)
         m_telegramQueue_highPriority.clear();
     else
         m_telegramQueue_standardPriority.clear();
+    m_telegramQueueMutex.unlock();
 }
 
 void EbmBus::slot_tryToSendNextTelegram()
