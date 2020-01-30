@@ -345,7 +345,7 @@ void EbmBus::tryToParseResponseRaw(QByteArray* buffer)
     bool senderEcho = (preamble & 0x04);
 
     if (buffer->size() < 3 + dataLength + 1)
-        return;
+        return;     // Incomplete packet, so go back and keep collecting bytes...
 
     QByteArray data = buffer->mid(3, dataLength);
 
@@ -358,6 +358,13 @@ void EbmBus::tryToParseResponseRaw(QByteArray* buffer)
 
     if (cs == 0)    // checksum ok
     {
+        if (m_currentTelegram == nullptr)
+        {
+            buffer->clear();
+            fprintf(stderr, "EbmBus::tryToParseResponseRaw: m_currentTelegram is nullptr.\n");
+            return;     // Something is terribly wrong in this case, so just drop unwanted packet...
+        }
+
         if (!senderEcho)
         {
             m_requestTimer.stop();
@@ -367,7 +374,7 @@ void EbmBus::tryToParseResponseRaw(QByteArray* buffer)
         }
         else
             emit signal_senderEchoReceived();   // Todo: decide to repeat telegram from the other side of the loop
-    }
+    }   // If checksum is wrong, just ignore this packet - we cant't do a lot about that anyway and requestTimer will handle this case as lost telegram.
 
     buffer->clear();
 }
@@ -713,6 +720,10 @@ void EbmBus::slot_dciReceivedEEPROMdata(quint64 telegramID, quint8 fanAddress, q
 
 void EbmBus::slot_requestTimer_fired()
 {
+    if (m_currentTelegram == nullptr)
+    {
+        return;     // Something is terribly wrong in this case...
+    }
     if (m_currentTelegram->needsAnswer())
     {
         emit signal_transactionLost(m_currentTelegram->getID());
