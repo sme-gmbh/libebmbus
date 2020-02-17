@@ -384,6 +384,7 @@ void EbmBus::tryToParseResponseRaw(QByteArray* buffer)
         if (!senderEcho)
         {
             m_requestTimer.stop();
+            m_currentTelegram->m_repeatCount = 0;   // Do not repeat this telegram anymore since we got a valid response
             emit signal_responseRaw(m_currentTelegram->getID(), preamble, commandAndFanaddress, fanGroup, data);
             parseResponse(m_currentTelegram->getID(), preamble, commandAndFanaddress, fanGroup, data);
             emit signal_transactionFinished();
@@ -740,7 +741,7 @@ void EbmBus::slot_requestTimer_fired()
     {
         return;     // Something is terribly wrong in this case...
     }
-    if (m_currentTelegram->needsAnswer())
+    if (m_currentTelegram->needsAnswer() && m_currentTelegram->m_repeatCount == 0)
     {
         emit signal_transactionLost(m_currentTelegram->getID());
     }
