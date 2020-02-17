@@ -26,8 +26,8 @@
 class EbmBusTelegram
 {
 public:
-    EbmBusTelegram();
-    EbmBusTelegram(EbmBusCommand::Command command, quint8 fanAddress, quint8 fanGroup, QByteArray data, bool servicebit = false);
+    EbmBusTelegram(int repeatCount = 1);
+    EbmBusTelegram(EbmBusCommand::Command command, quint8 fanAddress, quint8 fanGroup, QByteArray data, bool servicebit = false, int repeatCount = 1);
 
     EbmBusCommand::Command command;
     quint8 fanAddress;
@@ -35,7 +35,7 @@ public:
     QByteArray data;
     bool servicebit;
 
-    int repeatCount;    // Set to different value if that telegram is important and should be autorepeated
+    int m_repeatCount;    // Set to different value if that telegram is important and should be autorepeated
 
     bool needsAnswer();
 

@@ -15,7 +15,7 @@
 
 #include "ebmbustelegram.h"
 
-EbmBusTelegram::EbmBusTelegram()
+EbmBusTelegram::EbmBusTelegram(int repeatCount)
 {
     static quint64 id = 1;  // Start counting telegram id with 1. 0 is reserved for error
     this->m_id = id;
@@ -23,11 +23,11 @@ EbmBusTelegram::EbmBusTelegram()
     if (id == 0)            // Wrap around and avoid 0 - if that might ever happen with quint64... - just to be correct.
         id = 1;
 
-    repeatCount = 1;
+    m_repeatCount = repeatCount;
     servicebit = false;
 }
 
-EbmBusTelegram::EbmBusTelegram(EbmBusCommand::Command command, quint8 fanAddress, quint8 fanGroup, QByteArray data, bool servicebit)
+EbmBusTelegram::EbmBusTelegram(EbmBusCommand::Command command, quint8 fanAddress, quint8 fanGroup, QByteArray data, bool servicebit, int repeatCount)
 {
     static quint64 id = 1;  // Start counting telegram id with 1. 0 is reserved for error
     this->m_id = id;
@@ -40,7 +40,7 @@ EbmBusTelegram::EbmBusTelegram(EbmBusCommand::Command command, quint8 fanAddress
     this->fanGroup = fanGroup;
     this->data = data;
     this->servicebit = servicebit;
-    repeatCount = 1;
+    m_repeatCount = repeatCount;
 }
 
 bool EbmBusTelegram::needsAnswer()

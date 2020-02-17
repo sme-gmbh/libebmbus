@@ -26,6 +26,7 @@ EbmBus::EbmBus(QObject *parent, QString interface_startOfLoop, QString interface
         m_port_endOfLoop = nullptr;
     m_transactionPending = false;
     m_currentTelegram = nullptr;
+    m_telegramRepeatCount = 2;
     m_dci_telegramID = 0;
 
     m_dci_currentSerialNumber_byte_0 = 0;
@@ -40,7 +41,7 @@ EbmBus::EbmBus(QObject *parent, QString interface_startOfLoop, QString interface
 
     // This timer notifies about a telegram timeout if a unit does not answer
     m_requestTimer.setSingleShot(true);
-    m_requestTimer.setInterval(200);
+    m_requestTimer.setInterval(300);
     connect(&m_requestTimer, SIGNAL(timeout()), this, SLOT(slot_requestTimer_fired()));
 
     // This timer delays tx after rx to wait for line clearance
@@ -122,31 +123,36 @@ void EbmBus::close()
     }
 }
 
+void EbmBus::setRequestTimeout(int ms)
+{
+    m_requestTimer.setInterval(ms);
+}
+
 // High level access, these functions return the telegram id that can be compared to receives messages to identify the sender
 
 quint64 EbmBus::getSimpleStatus(quint8 fanAddress, quint8 fanGroup)
 {
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::GetStatus, fanAddress, fanGroup, QByteArray()));
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::GetStatus, fanAddress, fanGroup, QByteArray(), m_telegramRepeatCount));
 }
 
 quint64 EbmBus::getStatus(quint8 fanAddress, quint8 fanGroup, EbmBusStatus::StatusAddress statusAddress)
 {
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::GetStatus, fanAddress, fanGroup, QByteArray(1, statusAddress)));
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::GetStatus, fanAddress, fanGroup, QByteArray(1, statusAddress), m_telegramRepeatCount));
 }
 
 quint64 EbmBus::getActualSpeed(quint8 fanAddress, quint8 fanGroup, bool highPriority)
 {
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::GetActualSpeed, fanAddress, fanGroup, QByteArray()), highPriority);
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::GetActualSpeed, fanAddress, fanGroup, QByteArray(), m_telegramRepeatCount), highPriority);
 }
 
 quint64 EbmBus::setSpeedSetpoint(quint8 fanAddress, quint8 fanGroup, quint8 speed)
 {
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::SetSetpoint, fanAddress, fanGroup, QByteArray(1, speed)), true);
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::SetSetpoint, fanAddress, fanGroup, QByteArray(1, speed), m_telegramRepeatCount), true);
 }
 
 quint64 EbmBus::softwareReset(quint8 fanAddress, quint8 fanGroup)
 {
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::SoftwareReset, fanAddress, fanGroup, QByteArray()), true);
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::SoftwareReset, fanAddress, fanGroup, QByteArray(), m_telegramRepeatCount), true);
 }
 
 quint64 EbmBus::diagnosis(quint8 fanAddress, quint8 fanGroup, quint8 c, quint16 a, QByteArray d)
@@ -168,12 +174,12 @@ quint64 EbmBus::writeEEPROM(quint8 fanAddress, quint8 fanGroup, EbmBusEEPROM::EE
     payload.append(eepromAddress);
     payload.append(eepromData);
 
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::EEPROMwrite, fanAddress, fanGroup, payload), true);
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::EEPROMwrite, fanAddress, fanGroup, payload, m_telegramRepeatCount), true);
 }
 
 quint64 EbmBus::readEEPROM(quint8 fanAddress, quint8 fanGroup, EbmBusEEPROM::EEPROMaddress eepromAddress)
 {
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::EEPROMread, fanAddress, fanGroup, QByteArray(1, eepromAddress)), true);
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::EEPROMread, fanAddress, fanGroup, QByteArray(1, eepromAddress), m_telegramRepeatCount), true);
 }
 
 void EbmBus::startDaisyChainAddressing()
@@ -229,7 +235,7 @@ void EbmBus::slot_tryToSendNextTelegram()
     // Delete last telegram if it exists
     // If repeat counter is not zero, then repeat current telegram, otherwise take new
     // telegram from the queue
-    if ((m_currentTelegram != nullptr) && (m_currentTelegram->repeatCount == 0))
+    if ((m_currentTelegram != nullptr) && (m_currentTelegram->m_repeatCount == 0))
     {
         delete m_currentTelegram;
         m_currentTelegram = nullptr;
@@ -274,6 +280,16 @@ quint64 EbmBus::writeTelegramToQueue(EbmBusTelegram *telegram, bool highPriority
     return telegramID;
 }
 
+int EbmBus::getTelegramRepeatCount() const
+{
+    return m_telegramRepeatCount;
+}
+
+void EbmBus::setTelegramRepeatCount(int telegramRepeatCount)
+{
+    m_telegramRepeatCount = telegramRepeatCount;
+}
+
 
 // Low level access
 
@@ -310,7 +326,7 @@ quint64 EbmBus::writeTelegramNow(EbmBusTelegram* telegram)
     quint8 fanGroup = telegram->fanGroup;
     QByteArray data = telegram->data;
     bool servicebit = telegram->servicebit;
-    telegram->repeatCount--;
+    telegram->m_repeatCount--;
 
     // Cut off bits that may not be set by address
     commandAndFanaddress &= 0x1f;

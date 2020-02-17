@@ -37,6 +37,7 @@ public:
     bool open();
     bool isOpen();
     void close();
+    void setRequestTimeout(int ms);
 
     // High level access
     quint64 getSimpleStatus(quint8 fanAddress, quint8 fanGroup);
@@ -57,6 +58,9 @@ public:
     // Low level access; writes to queue that is fed to the byte level access layer
     // Returns the assigned telegram id, which is unique
     quint64 writeTelegramToQueue(EbmBusTelegram* telegram, bool highPriority = false);
+
+    int getTelegramRepeatCount() const;
+    void setTelegramRepeatCount(int telegramRepeatCount);
 
 private:
     QString m_interface_startOfLoop;
@@ -82,6 +86,7 @@ private:
     QList<EbmBusTelegram*> m_telegramQueue_standardPriority;
     QList<EbmBusTelegram*> m_telegramQueue_highPriority;
     EbmBusTelegram* m_currentTelegram;
+    int m_telegramRepeatCount;
 
     typedef enum {
         Idle = 0,
