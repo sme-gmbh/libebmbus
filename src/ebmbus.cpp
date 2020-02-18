@@ -33,8 +33,6 @@ EbmBus::EbmBus(QObject *parent, QString interface_startOfLoop, QString interface
     m_dci_currentSerialNumber_byte_1 = 0;
     m_dci_currentSerialNumber_byte_2 = 0;
 
-//    connect(this, SIGNAL(signal_transactionFinished()), this, SLOT(slot_tryToSendNextTelegram()));
-
     m_dciClear = false;
     m_dciTimer.setInterval(200);
     connect(&m_dciTimer, SIGNAL(timeout()), this, SLOT(slot_dciTask()));
@@ -48,6 +46,7 @@ EbmBus::EbmBus(QObject *parent, QString interface_startOfLoop, QString interface
     m_delayTxTimer.setSingleShot(true);
     m_delayTxTimer.setInterval(10);
     connect(this, SIGNAL(signal_transactionFinished()), &m_delayTxTimer, SLOT(start()));
+    connect(this, SIGNAL(signal_transactionTimedOut()), &m_delayTxTimer, SLOT(start()));
     connect(&m_delayTxTimer, SIGNAL(timeout()), this, SLOT(slot_tryToSendNextTelegram()));
 }
 
@@ -741,10 +740,15 @@ void EbmBus::slot_requestTimer_fired()
     {
         return;     // Something is terribly wrong in this case...
     }
-    if (m_currentTelegram->needsAnswer() && m_currentTelegram->m_repeatCount == 0)
+
+    if (m_currentTelegram->needsAnswer())
     {
-        emit signal_transactionLost(m_currentTelegram->getID());
+        if (m_currentTelegram->m_repeatCount == 0)
+            emit signal_transactionLost(m_currentTelegram->getID());
+        emit signal_transactionTimedOut();
     }
-    emit signal_transactionFinished();
+    else
+        emit signal_transactionFinished();
+
 }
 

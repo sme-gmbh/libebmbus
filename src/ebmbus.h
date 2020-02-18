@@ -113,6 +113,7 @@ private:
 signals:
     void signal_responseRaw(quint64 telegramID, quint8 preamble, quint8 commandAndFanaddress, quint8 fanGroup, QByteArray data);
     void signal_transactionFinished();
+    void signal_transactionTimedOut();
     void signal_transactionLost(quint64 id);
     void signal_setDCIoutput(bool on);
     void signal_DaisyChainAddressingGotSerialNumber(quint8 unit, quint8 fanAddress, quint8 fanGroup, quint32 serialNumber);
