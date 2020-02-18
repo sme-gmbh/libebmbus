@@ -27,7 +27,7 @@ EbmBusTelegram::EbmBusTelegram(int repeatCount)
     servicebit = false;
 }
 
-EbmBusTelegram::EbmBusTelegram(EbmBusCommand::Command command, quint8 fanAddress, quint8 fanGroup, QByteArray data, bool servicebit, int repeatCount)
+EbmBusTelegram::EbmBusTelegram(EbmBusCommand::Command command, quint8 fanAddress, quint8 fanGroup, QByteArray data, int repeatCount, bool servicebit)
 {
     static quint64 id = 1;  // Start counting telegram id with 1. 0 is reserved for error
     this->m_id = id;

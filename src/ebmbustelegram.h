@@ -27,7 +27,7 @@ class EbmBusTelegram
 {
 public:
     EbmBusTelegram(int repeatCount = 1);
-    EbmBusTelegram(EbmBusCommand::Command command, quint8 fanAddress, quint8 fanGroup, QByteArray data, bool servicebit = false, int repeatCount = 1);
+    EbmBusTelegram(EbmBusCommand::Command command, quint8 fanAddress, quint8 fanGroup, QByteArray data, int repeatCount = 1, bool servicebit = false);
 
     EbmBusCommand::Command command;
     quint8 fanAddress;
