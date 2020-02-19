@@ -222,9 +222,21 @@ void EbmBus::clearTelegramQueue(bool highPriorityQueue)
 {
     m_telegramQueueMutex.lock();
     if (highPriorityQueue)
+    {
+        foreach (EbmBusTelegram* telegram, m_telegramQueue_highPriority)
+        {
+            delete telegram;
+        }
         m_telegramQueue_highPriority.clear();
+    }
     else
+    {
+        foreach (EbmBusTelegram* telegram, m_telegramQueue_standardPriority)
+        {
+            delete telegram;
+        }
         m_telegramQueue_standardPriority.clear();
+    }
     m_telegramQueueMutex.unlock();
 }
 
