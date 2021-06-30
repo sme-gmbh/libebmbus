@@ -34,7 +34,7 @@ EbmBus::EbmBus(QObject *parent, QString interface_startOfLoop, QString interface
     m_dci_currentSerialNumber_byte_2 = 0;
 
     m_dciClear = false;
-    m_dciTimer.setInterval(200);
+    m_dciTimer.setInterval(500);
     connect(&m_dciTimer, SIGNAL(timeout()), this, SLOT(slot_dciTask()));
 
     // This timer notifies about a telegram timeout if a unit does not answer

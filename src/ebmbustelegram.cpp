@@ -40,7 +40,10 @@ EbmBusTelegram::EbmBusTelegram(EbmBusCommand::Command command, quint8 fanAddress
     this->fanGroup = fanGroup;
     this->data = data;
     this->servicebit = servicebit;
-    m_repeatCount = repeatCount;
+    if (this->needsAnswer())
+        m_repeatCount = repeatCount;
+    else
+        m_repeatCount = 1;
 }
 
 bool EbmBusTelegram::needsAnswer()
