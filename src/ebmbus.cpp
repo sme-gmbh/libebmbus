@@ -602,6 +602,9 @@ void EbmBus::slot_requestTimer_fired()
     {
         emit signal_transactionLost(m_currentTelegram->getID());
     }
-    emit signal_transactionFinished();
+    else
+    {
+        emit signal_transactionFinished();  // Test this! was without else - always executed!
+    }
 }
 
