@@ -1,3 +1,18 @@
+/**********************************************************************
+** libebmbus - a library to control ebm papst fans with ebmbus
+** Copyright (C) 2018 Smart Micro Engineering GmbH, Peter Diener
+** This program is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License as published by
+** the Free Software Foundation, either version 3 of the License, or
+** (at your option) any later version.
+** This program is distributed in the hope that it will be useful,
+** but WITHOUT ANY WARRANTY; without even the implied warranty of
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** GNU General Public License for more details.
+** You should have received a copy of the GNU General Public License
+** along with this program. If not, see <http://www.gnu.org/licenses/>.
+**********************************************************************/
+
 #ifndef EBMBUSTELEGRAM_H
 #define EBMBUSTELEGRAM_H
 
@@ -11,8 +26,8 @@
 class EbmBusTelegram
 {
 public:
-    EbmBusTelegram();
-    EbmBusTelegram(EbmBusCommand::Command command, quint8 fanAddress, quint8 fanGroup, QByteArray data, bool servicebit = false);
+    EbmBusTelegram(int repeatCount = 1);
+    EbmBusTelegram(EbmBusCommand::Command command, quint8 fanAddress, quint8 fanGroup, QByteArray data, int repeatCount = 1, bool servicebit = false);
 
     EbmBusCommand::Command command;
     quint8 fanAddress;
@@ -20,7 +35,7 @@ public:
     QByteArray data;
     bool servicebit;
 
-    int repeatCount;    // Set to different value if that telegram is important and should be autorepeated
+    int m_repeatCount;    // Set to different value if that telegram is important and should be autorepeated
 
     bool needsAnswer();
 

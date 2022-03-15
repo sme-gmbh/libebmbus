@@ -1,5 +1,17 @@
-// Copyright SME GmbH
-// Open source license to be defined. GPL2?
+/**********************************************************************
+** libebmbus - a library to control ebm papst fans with ebmbus
+** Copyright (C) 2018 Smart Micro Engineering GmbH, Peter Diener
+** This program is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License as published by
+** the Free Software Foundation, either version 3 of the License, or
+** (at your option) any later version.
+** This program is distributed in the hope that it will be useful,
+** but WITHOUT ANY WARRANTY; without even the implied warranty of
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** GNU General Public License for more details.
+** You should have received a copy of the GNU General Public License
+** along with this program. If not, see <http://www.gnu.org/licenses/>.
+**********************************************************************/
 
 #ifndef EBMBUS_H
 #define EBMBUS_H
@@ -19,16 +31,18 @@ class EBMBUSSHARED_EXPORT EbmBus : public QObject
 {
     Q_OBJECT
 public:
-    explicit EbmBus(QObject *parent, QString interface);
+    explicit EbmBus(QObject *parent, QString interface_startOfLoop, QString interface_endOfLoop = QString());
     ~EbmBus();
 
     bool open();
+    bool isOpen();
     void close();
+    void setRequestTimeout(int ms);
 
     // High level access
     quint64 getSimpleStatus(quint8 fanAddress, quint8 fanGroup);
     quint64 getStatus(quint8 fanAddress, quint8 fanGroup, EbmBusStatus::StatusAddress statusAddress);
-    quint64 getActualSpeed(quint8 fanAddress, quint8 fanGroup);
+    quint64 getActualSpeed(quint8 fanAddress, quint8 fanGroup, bool highPriority = false);
     quint64 setSpeedSetpoint(quint8 fanAddress, quint8 fanGroup, quint8 speed);
     quint64 softwareReset(quint8 fanAddress, quint8 fanGroup);
     quint64 diagnosis(quint8 fanAddress, quint8 fanGroup, quint8 c, quint16 a, QByteArray d);
@@ -38,14 +52,23 @@ public:
     void clearAllAddresses();
     bool isDaisyChainInProgress();
 
+    int getSizeOfTelegramQueue(bool highPriorityQueue = false);
+    void clearTelegramQueue(bool highPriorityQueue = false);
+
     // Low level access; writes to queue that is fed to the byte level access layer
     // Returns the assigned telegram id, which is unique
-    quint64 writeTelegramToQueue(EbmBusTelegram* telegram);
+    quint64 writeTelegramToQueue(EbmBusTelegram* telegram, bool highPriority = false);
+
+    int getTelegramRepeatCount() const;
+    void setTelegramRepeatCount(int telegramRepeatCount);
 
 private:
-    QString m_interface;
-    QSerialPort* m_port;
-    QByteArray m_readBuffer;
+    QString m_interface_startOfLoop;
+    QString m_interface_endOfLoop;
+    QSerialPort* m_port_startOfLoop;
+    QSerialPort* m_port_endOfLoop;
+    QByteArray m_readBuffer_startOfLoop;
+    QByteArray m_readBuffer_endOfLoop;
     QStringList m_serialnumbers;
     QTimer m_dciTimer;      // This timer controlles the state machine for dci addressing
     QTimer m_requestTimer;  // This timer controlles timeout of telegrams with answer and sending timeslots for telegrams without answer
@@ -60,8 +83,10 @@ private:
 
     bool m_transactionPending;
     QMutex m_telegramQueueMutex;
-    QList<EbmBusTelegram*> m_telegramQueue;
+    QList<EbmBusTelegram*> m_telegramQueue_standardPriority;
+    QList<EbmBusTelegram*> m_telegramQueue_highPriority;
     EbmBusTelegram* m_currentTelegram;
+    int m_telegramRepeatCount;
 
     typedef enum {
         Idle = 0,
@@ -88,10 +113,13 @@ private:
 signals:
     void signal_responseRaw(quint64 telegramID, quint8 preamble, quint8 commandAndFanaddress, quint8 fanGroup, QByteArray data);
     void signal_transactionFinished();
+    void signal_transactionTimedOut();
     void signal_transactionLost(quint64 id);
     void signal_setDCIoutput(bool on);
     void signal_DaisyChainAddressingGotSerialNumber(quint8 unit, quint8 fanAddress, quint8 fanGroup, quint32 serialNumber);
     void signal_DaisyChainAdressingFinished();
+
+    void signal_senderEchoReceived();
 
     // High level response signals
     void signal_simpleStatus(quint64 telegramID, quint8 fanAddress, quint8 fanGroup, QString status);
@@ -107,7 +135,8 @@ public slots:
 
 private slots:
     void slot_tryToSendNextTelegram();
-    void slot_readyRead();
+    void slot_readyRead_startOfLoop();
+    void slot_readyRead_endOfLoop();
     void slot_dciTask();
     void slot_dciReceivedEEPROMdata(quint64 telegramID, quint8 fanAddress, quint8 fanGroup, EbmBusEEPROM::EEPROMaddress eepromAddress, quint8 dataByte);
     void slot_requestTimer_fired();

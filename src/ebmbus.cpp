@@ -1,99 +1,166 @@
-// Copyright SME GmbH
-// Open source license to be defined. GPL2?
+/**********************************************************************
+** libebmbus - a library to control ebm papst fans with ebmbus
+** Copyright (C) 2018 Smart Micro Engineering GmbH, Peter Diener
+** This program is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License as published by
+** the Free Software Foundation, either version 3 of the License, or
+** (at your option) any later version.
+** This program is distributed in the hope that it will be useful,
+** but WITHOUT ANY WARRANTY; without even the implied warranty of
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** GNU General Public License for more details.
+** You should have received a copy of the GNU General Public License
+** along with this program. If not, see <http://www.gnu.org/licenses/>.
+**********************************************************************/
 
 #include "ebmbus.h"
 
-EbmBus::EbmBus(QObject *parent, QString interface) : QObject(parent)
+EbmBus::EbmBus(QObject *parent, QString interface_startOfLoop, QString interface_endOfLoop) : QObject(parent)
 {
-    m_interface = interface;
-    m_port = new QSerialPort(interface, this);
+    m_interface_startOfLoop = interface_startOfLoop;
+    m_interface_endOfLoop = interface_endOfLoop;
+    m_port_startOfLoop = new QSerialPort(interface_startOfLoop, this);
+    if (!interface_endOfLoop.isEmpty())
+        m_port_endOfLoop = new QSerialPort(interface_endOfLoop, this);
+    else
+        m_port_endOfLoop = nullptr;
     m_transactionPending = false;
-    m_currentTelegram = NULL;
+    m_currentTelegram = nullptr;
+    m_telegramRepeatCount = 2;
     m_dci_telegramID = 0;
 
     m_dci_currentSerialNumber_byte_0 = 0;
     m_dci_currentSerialNumber_byte_1 = 0;
     m_dci_currentSerialNumber_byte_2 = 0;
 
-//    connect(this, SIGNAL(signal_transactionFinished()), this, SLOT(slot_tryToSendNextTelegram()));
-
     m_dciClear = false;
-    m_dciTimer.setInterval(200);
+    m_dciTimer.setInterval(500);
     connect(&m_dciTimer, SIGNAL(timeout()), this, SLOT(slot_dciTask()));
 
     // This timer notifies about a telegram timeout if a unit does not answer
     m_requestTimer.setSingleShot(true);
-    m_requestTimer.setInterval(200);
+    m_requestTimer.setInterval(300);
     connect(&m_requestTimer, SIGNAL(timeout()), this, SLOT(slot_requestTimer_fired()));
 
     // This timer delays tx after rx to wait for line clearance
     m_delayTxTimer.setSingleShot(true);
     m_delayTxTimer.setInterval(10);
     connect(this, SIGNAL(signal_transactionFinished()), &m_delayTxTimer, SLOT(start()));
+    connect(this, SIGNAL(signal_transactionTimedOut()), &m_delayTxTimer, SLOT(start()));
     connect(&m_delayTxTimer, SIGNAL(timeout()), this, SLOT(slot_tryToSendNextTelegram()));
 }
 
 EbmBus::~EbmBus()
 {
-    if (m_port->isOpen())
+    if (this->isOpen())
         this->close();
-    delete m_port;
+    delete m_port_startOfLoop;
+    delete m_port_startOfLoop;
 }
 
 bool EbmBus::open()
 {
-    m_port->setBaudRate(QSerialPort::Baud9600);
-    m_port->setDataBits(QSerialPort::Data8);
-    m_port->setParity(QSerialPort::NoParity);
-    m_port->setStopBits(QSerialPort::OneStop);
-    m_port->setFlowControl(QSerialPort::NoFlowControl);
-    connect(m_port, SIGNAL(readyRead()), this, SLOT(slot_readyRead()));
-    bool openOK = m_port->open(QIODevice::ReadWrite);
-    m_port->setBreakEnabled(false);
-    m_port->setTextModeEnabled(false);
-    return openOK;
+    bool openFailed = true;
+
+    if (m_port_startOfLoop != nullptr)
+    {
+        m_port_startOfLoop->setBaudRate(QSerialPort::Baud9600);
+        m_port_startOfLoop->setDataBits(QSerialPort::Data8);
+        m_port_startOfLoop->setParity(QSerialPort::NoParity);
+        m_port_startOfLoop->setStopBits(QSerialPort::OneStop);
+        m_port_startOfLoop->setFlowControl(QSerialPort::NoFlowControl);
+        connect(m_port_startOfLoop, SIGNAL(readyRead()), this, SLOT(slot_readyRead_startOfLoop()));
+        openFailed = !m_port_startOfLoop->open(QIODevice::ReadWrite);
+        m_port_startOfLoop->setBreakEnabled(false);
+        m_port_startOfLoop->setTextModeEnabled(false);
+    }
+
+    if (m_port_endOfLoop != nullptr)
+    {
+        m_port_endOfLoop->setBaudRate(QSerialPort::Baud9600);
+        m_port_endOfLoop->setDataBits(QSerialPort::Data8);
+        m_port_endOfLoop->setParity(QSerialPort::NoParity);
+        m_port_endOfLoop->setStopBits(QSerialPort::OneStop);
+        m_port_endOfLoop->setFlowControl(QSerialPort::NoFlowControl);
+        connect(m_port_endOfLoop, SIGNAL(readyRead()), this, SLOT(slot_readyRead_endOfLoop()));
+        openFailed |= !m_port_endOfLoop->open(QIODevice::ReadWrite);
+        m_port_endOfLoop->setBreakEnabled(false);
+        m_port_endOfLoop->setTextModeEnabled(false);
+    }
+
+    return !openFailed;
+}
+
+bool EbmBus::isOpen()
+{
+    if (m_port_startOfLoop != nullptr)
+    {
+        if (m_port_startOfLoop->isOpen())
+            return true;
+    }
+
+    if (m_port_endOfLoop != nullptr)
+    {
+        if (m_port_endOfLoop->isOpen())
+            return true;
+    }
+
+    return false;
 }
 
 void EbmBus::close()
 {
-    if (m_port->isOpen())
-        m_port->close();
+    if (m_port_startOfLoop != nullptr)
+    {
+        if (m_port_startOfLoop->isOpen())
+            m_port_startOfLoop->close();
+    }
+    if (m_port_endOfLoop != nullptr)
+    {
+        if (m_port_endOfLoop->isOpen())
+            m_port_endOfLoop->close();
+    }
+}
+
+void EbmBus::setRequestTimeout(int ms)
+{
+    m_requestTimer.setInterval(ms);
 }
 
 // High level access, these functions return the telegram id that can be compared to receives messages to identify the sender
 
 quint64 EbmBus::getSimpleStatus(quint8 fanAddress, quint8 fanGroup)
 {
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::GetStatus, fanAddress, fanGroup, QByteArray()));
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::GetStatus, fanAddress, fanGroup, QByteArray(), m_telegramRepeatCount));
 }
 
 quint64 EbmBus::getStatus(quint8 fanAddress, quint8 fanGroup, EbmBusStatus::StatusAddress statusAddress)
 {
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::GetStatus, fanAddress, fanGroup, QByteArray(1, statusAddress)));
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::GetStatus, fanAddress, fanGroup, QByteArray(1, statusAddress), m_telegramRepeatCount));
 }
 
-quint64 EbmBus::getActualSpeed(quint8 fanAddress, quint8 fanGroup)
+quint64 EbmBus::getActualSpeed(quint8 fanAddress, quint8 fanGroup, bool highPriority)
 {
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::GetActualSpeed, fanAddress, fanGroup, QByteArray()));
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::GetActualSpeed, fanAddress, fanGroup, QByteArray(), m_telegramRepeatCount), highPriority);
 }
 
 quint64 EbmBus::setSpeedSetpoint(quint8 fanAddress, quint8 fanGroup, quint8 speed)
 {
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::SetSetpoint, fanAddress, fanGroup, QByteArray(1, speed)));
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::SetSetpoint, fanAddress, fanGroup, QByteArray(1, speed), m_telegramRepeatCount), true);
 }
 
 quint64 EbmBus::softwareReset(quint8 fanAddress, quint8 fanGroup)
 {
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::SoftwareReset, fanAddress, fanGroup, QByteArray()));
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::SoftwareReset, fanAddress, fanGroup, QByteArray(), m_telegramRepeatCount), true);
 }
 
 quint64 EbmBus::diagnosis(quint8 fanAddress, quint8 fanGroup, quint8 c, quint16 a, QByteArray d)
 {
-    Q_UNUSED(fanAddress);
-    Q_UNUSED(fanGroup);
-    Q_UNUSED(c);
-    Q_UNUSED(a);
-    Q_UNUSED(d);
+    Q_UNUSED(fanAddress)
+    Q_UNUSED(fanGroup)
+    Q_UNUSED(c)
+    Q_UNUSED(a)
+    Q_UNUSED(d)
     // tbd.
     return 0;
 }
@@ -106,12 +173,12 @@ quint64 EbmBus::writeEEPROM(quint8 fanAddress, quint8 fanGroup, EbmBusEEPROM::EE
     payload.append(eepromAddress);
     payload.append(eepromData);
 
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::EEPROMwrite, fanAddress, fanGroup, payload));
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::EEPROMwrite, fanAddress, fanGroup, payload, m_telegramRepeatCount), true);
 }
 
 quint64 EbmBus::readEEPROM(quint8 fanAddress, quint8 fanGroup, EbmBusEEPROM::EEPROMaddress eepromAddress)
 {
-    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::EEPROMread, fanAddress, fanGroup, QByteArray(1, eepromAddress)));
+    return writeTelegramToQueue(new EbmBusTelegram(EbmBusCommand::EEPROMread, fanAddress, fanGroup, QByteArray(1, eepromAddress), m_telegramRepeatCount), true);
 }
 
 void EbmBus::startDaisyChainAddressing()
@@ -139,26 +206,63 @@ bool EbmBus::isDaisyChainInProgress()
         return false;
 }
 
+int EbmBus::getSizeOfTelegramQueue(bool highPriorityQueue)
+{
+    m_telegramQueueMutex.lock();
+    int size;
+    if (highPriorityQueue)
+        size = m_telegramQueue_highPriority.length();
+    else
+        size = m_telegramQueue_standardPriority.length();
+    m_telegramQueueMutex.unlock();
+    return size;
+}
+
+void EbmBus::clearTelegramQueue(bool highPriorityQueue)
+{
+    m_telegramQueueMutex.lock();
+    if (highPriorityQueue)
+    {
+        foreach (EbmBusTelegram* telegram, m_telegramQueue_highPriority)
+        {
+            delete telegram;
+        }
+        m_telegramQueue_highPriority.clear();
+    }
+    else
+    {
+        foreach (EbmBusTelegram* telegram, m_telegramQueue_standardPriority)
+        {
+            delete telegram;
+        }
+        m_telegramQueue_standardPriority.clear();
+    }
+    m_telegramQueueMutex.unlock();
+}
+
 void EbmBus::slot_tryToSendNextTelegram()
 {
     m_telegramQueueMutex.lock();
     // Delete last telegram if it exists
     // If repeat counter is not zero, then repeat current telegram, otherwise take new
     // telegram from the queue
-    if ((m_currentTelegram != NULL) && (m_currentTelegram->repeatCount == 0))
+    if ((m_currentTelegram != nullptr) && (m_currentTelegram->m_repeatCount == 0))
     {
         delete m_currentTelegram;
-        m_currentTelegram = NULL;
+        m_currentTelegram = nullptr;
     }
 
-    if (m_currentTelegram == NULL)
+    if (m_currentTelegram == nullptr)
     {
-        if (m_telegramQueue.isEmpty())
+        if (m_telegramQueue_standardPriority.isEmpty() && m_telegramQueue_highPriority.isEmpty())
         {
             m_telegramQueueMutex.unlock();
             return;
         }
-        m_currentTelegram = m_telegramQueue.takeFirst();
+        if (m_telegramQueue_highPriority.isEmpty())
+            m_currentTelegram = m_telegramQueue_standardPriority.takeFirst();
+        else
+            m_currentTelegram = m_telegramQueue_highPriority.takeFirst();
     }
 
     m_requestTimer.start();
@@ -167,11 +271,14 @@ void EbmBus::slot_tryToSendNextTelegram()
     writeTelegramNow(m_currentTelegram);
 }
 
-quint64 EbmBus::writeTelegramToQueue(EbmBusTelegram *telegram)
+quint64 EbmBus::writeTelegramToQueue(EbmBusTelegram *telegram, bool highPriority)
 {
     quint64 telegramID = telegram->getID();
     m_telegramQueueMutex.lock();
-    m_telegramQueue.append(telegram);
+    if (highPriority)
+        m_telegramQueue_highPriority.append(telegram);
+    else
+        m_telegramQueue_standardPriority.append(telegram);
 
     if (!m_requestTimer.isActive()) // If we inserted the first packet, we have to start the sending process
     {
@@ -182,6 +289,16 @@ quint64 EbmBus::writeTelegramToQueue(EbmBusTelegram *telegram)
         m_telegramQueueMutex.unlock();
 
     return telegramID;
+}
+
+int EbmBus::getTelegramRepeatCount() const
+{
+    return m_telegramRepeatCount;
+}
+
+void EbmBus::setTelegramRepeatCount(int telegramRepeatCount)
+{
+    m_telegramRepeatCount = telegramRepeatCount;
 }
 
 
@@ -206,10 +323,10 @@ void EbmBus::writeTelegramRawNow(quint8 preamble, quint8 commandAndFanaddress, q
 
     out.append(cs);
 
-    if (m_port->isOpen())
+    if (m_port_startOfLoop->isOpen())
     {
-        m_port->write(out);
-        m_port->flush();
+        m_port_startOfLoop->write(out);
+        m_port_startOfLoop->flush();
     }
 }
 
@@ -220,7 +337,7 @@ quint64 EbmBus::writeTelegramNow(EbmBusTelegram* telegram)
     quint8 fanGroup = telegram->fanGroup;
     QByteArray data = telegram->data;
     bool servicebit = telegram->servicebit;
-    telegram->repeatCount--;
+    telegram->m_repeatCount--;
 
     // Cut off bits that may not be set by address
     commandAndFanaddress &= 0x1f;
@@ -252,9 +369,10 @@ void EbmBus::tryToParseResponseRaw(QByteArray* buffer)
     quint8 fanGroup = buffer->at(2);
 
     quint8 dataLength = preamble >> 5;
+    bool senderEcho = (preamble & 0x04);
 
     if (buffer->size() < 3 + dataLength + 1)
-        return;
+        return;     // Incomplete packet, so go back and keep collecting bytes...
 
     QByteArray data = buffer->mid(3, dataLength);
 
@@ -267,18 +385,31 @@ void EbmBus::tryToParseResponseRaw(QByteArray* buffer)
 
     if (cs == 0)    // checksum ok
     {
-        m_requestTimer.stop();
-        emit signal_responseRaw(m_currentTelegram->getID(), preamble, commandAndFanaddress, fanGroup, data);
-        parseResponse(m_currentTelegram->getID(), preamble, commandAndFanaddress, fanGroup, data);
-        emit signal_transactionFinished();
-    }
+        if (m_currentTelegram == nullptr)
+        {
+            buffer->clear();
+            fprintf(stderr, "EbmBus::tryToParseResponseRaw: m_currentTelegram is nullptr.\n");
+            return;     // Something is terribly wrong in this case, so just drop unwanted packet...
+        }
+
+        if (!senderEcho)
+        {
+            m_requestTimer.stop();
+            m_currentTelegram->m_repeatCount = 0;   // Do not repeat this telegram anymore since we got a valid response
+            emit signal_responseRaw(m_currentTelegram->getID(), preamble, commandAndFanaddress, fanGroup, data);
+            parseResponse(m_currentTelegram->getID(), preamble, commandAndFanaddress, fanGroup, data);
+            emit signal_transactionFinished();
+        }
+        else
+            emit signal_senderEchoReceived();   // Todo: decide to repeat telegram from the other side of the loop
+    }   // If checksum is wrong, just ignore this packet - we cant't do a lot about that anyway and requestTimer will handle this case as lost telegram.
 
     buffer->clear();
 }
 
 void EbmBus::parseResponse(quint64 id, quint8 preamble, quint8 commandAndFanaddress, quint8 fanGroup, QByteArray data)
 {
-    Q_UNUSED(preamble);
+    Q_UNUSED(preamble)
 
     quint8 command = (commandAndFanaddress >> 5) & 0x07;
     quint8 fanAddress = commandAndFanaddress & 0x1f;
@@ -501,16 +632,35 @@ void EbmBus::slot_DCIloopResponse(bool on)
     }
 }
 
-void EbmBus::slot_readyRead()
+void EbmBus::slot_readyRead_startOfLoop()
 {
-    while (!m_port->atEnd())
+    if (m_port_startOfLoop == nullptr)
+        return;
+
+    while (!m_port_startOfLoop->atEnd())
     {
         //m_readBuffer += m_port->read(1);
         char c;
-        m_port->getChar(&c);
-        m_readBuffer.append(c);
+        m_port_startOfLoop->getChar(&c);
+        m_readBuffer_startOfLoop.append(c);
 
-        tryToParseResponseRaw(&m_readBuffer);
+        tryToParseResponseRaw(&m_readBuffer_startOfLoop);
+    }
+}
+
+void EbmBus::slot_readyRead_endOfLoop()
+{
+    if (m_port_endOfLoop == nullptr)
+        return;
+
+    while (!m_port_endOfLoop->atEnd())
+    {
+        //m_readBuffer += m_port->read(1);
+        char c;
+        m_port_endOfLoop->getChar(&c);
+        m_readBuffer_endOfLoop.append(c);
+
+        tryToParseResponseRaw(&m_readBuffer_endOfLoop); // Need to switch this from normal return way to redundancy in some way
     }
 }
 
@@ -576,8 +726,8 @@ void EbmBus::slot_dciTask()
 
 void EbmBus::slot_dciReceivedEEPROMdata(quint64 telegramID, quint8 fanAddress, quint8 fanGroup, EbmBusEEPROM::EEPROMaddress eepromAddress, quint8 dataByte)
 {
-    Q_UNUSED(fanAddress);
-    Q_UNUSED(fanGroup);
+    Q_UNUSED(fanAddress)
+    Q_UNUSED(fanGroup)
 
     // Check if that telegram has been sent by our dci job, otherwise ignore it
     if (telegramID != m_dci_telegramID)
@@ -598,13 +748,18 @@ void EbmBus::slot_dciReceivedEEPROMdata(quint64 telegramID, quint8 fanAddress, q
 
 void EbmBus::slot_requestTimer_fired()
 {
+    if (m_currentTelegram == nullptr)
+    {
+        return;     // Something is terribly wrong in this case...
+    }
+
     if (m_currentTelegram->needsAnswer())
     {
-        emit signal_transactionLost(m_currentTelegram->getID());
+        if (m_currentTelegram->m_repeatCount == 0)
+            emit signal_transactionLost(m_currentTelegram->getID());
+        emit signal_transactionTimedOut();
     }
     else
-    {
-        emit signal_transactionFinished();  // Test this! was without else - always executed!
-    }
+        emit signal_transactionFinished();
 }
 
